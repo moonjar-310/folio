@@ -12,7 +12,7 @@ for (const theme of ['light', 'dark']) {
   f.text(side, 'Theme toggle', 26, 916, theme === 'dark' ? '◐   Light mode' : '◐   Dark mode', 13, 'muted', theme, 'Geist', 190);
   f.text(side, 'Settings', 26, 960, '⚙   Settings', 13, 'muted', theme, 'Geist', 190);
   f.register(side, 'Navigation/Sidebar', theme);
-  const top = f.board('Navigation / Topbar / ' + theme, x, 1200, 1040, 68, penpot.root, theme);
+  const top = f.board('Navigation / Topbar / ' + theme, x, theme === 'light' ? 1200 : 1370, 1040, 68, penpot.root, theme);
   f.text(top, 'Breadcrumb', 28, 25, 'Personal workspace  /  Home', 12, 'muted', theme, 'Geist', 520);
   f.instance(top, 'Status/Saved', 850, 23, theme);
   f.rect(top, 'Rule', 0, 67, 1040, 1, 'line', theme);

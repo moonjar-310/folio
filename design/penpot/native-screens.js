@@ -9,7 +9,7 @@ for (const [theme, x] of [['light', 0], ['dark', 1440]]) {
   f.text(home, 'Greeting', 330, 175, 'Good afternoon.', 44, 'ink', theme, 'Newsreader', 700);
   f.text(home, 'Epigraph', 330, 234, 'Make room for what matters.', 20, 'muted', theme, 'Newsreader', 600);
   f.text(home, 'Goals heading', 330, 305, 'WHAT MATTERS · LONG-TERM GOALS', 10, 'muted', theme, 'JetBrains Mono', 500);
-  for (const [i,title] of ['Grow as an engineer','Build a personal notebook','Read, reflect, repeat'].entries()) f.instance(home,'Content/Goal',330+i*262,340,theme,{'Grow as an engineer':title,'DIRECTION 01':'DIRECTION 0'+(i+1)});
+  for (const [i,title] of ['Grow as an engineer','Build a notebook','Read, reflect, repeat'].entries()) f.instance(home,'Content/Goal',330+i*262,340,theme,{'Grow as an engineer':title,'DIRECTION 01':'DIRECTION 0'+(i+1)});
   f.text(home,'Task heading',330,596,"Today's intentions",25,'ink',theme,'Newsreader',500);
   for(const [i,text] of ['Review the authentication architecture','Refine the Paper & Folio design system','Morning pages & a slow coffee','Write the first page of the notebook','A walk, with room to think'].entries())f.row(home,330,645+i*56,text,theme,i===2,['09:00','11:30','07:30','14:00','16:30'][i]);
   f.instance(home,'Task/Add',330,925,theme);

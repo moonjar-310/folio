@@ -9,7 +9,7 @@ for(const [theme,x] of [['light',0],['dark',960]]){
  f.text(home,'Greeting',20,139,'Good afternoon.',34,'ink',theme,'Newsreader',350);
  f.text(home,'Epigraph',20,190,'Make room for what matters.',19,'muted',theme,'Newsreader',350);
  f.text(home,'Goals heading',20,252,'WHAT MATTERS',10,'muted',theme,'JetBrains Mono',350);
- for(const [i,title] of ['Grow as an engineer','Build a personal notebook','Read, reflect, repeat'].entries())f.instance(home,'Content/Goal',70,294+i*234,theme,{'Grow as an engineer':title,'DIRECTION 01':'DIRECTION 0'+(i+1)});
+ for(const [i,title] of ['Grow as an engineer','Build a notebook','Read, reflect, repeat'].entries())f.instance(home,'Content/Goal',70,294+i*234,theme,{'Grow as an engineer':title,'DIRECTION 01':'DIRECTION 0'+(i+1)});
  f.text(home,'Tasks heading',20,1015,"Today's intentions",25,'ink',theme,'Newsreader',350);
  const task=f.board('Mobile task / '+theme,x+440,100,350,66,penpot.root,theme,'sheet');
  f.rect(task,'Checkbox',12,24,16,16,'sheet',theme,3,'muted');
