@@ -31,15 +31,14 @@ Primary target:
 - Rust
 - Cloudflare Workers
 - WASM
-- SSR HTML
-- HTMX
-- minimal JS
+- Leptos CSR (browser WASM)
+- JSON API on Rust Workers
+- Static Assets for the browser application
 - R2
 - D1
 
-Avoid SPA frameworks.
-
-Do not ship Rust WASM to browser unless explicitly justified.
+The user explicitly selected Leptos CSR on 2026-09-14. Browser WASM owns rendering and UI state; Worker WASM owns data reads/writes. Do not restore SSR/HTMX without a new architecture decision.
+Keep UI-only changes local; avoid duplicate reads, polling and per-keystroke saves.
 
 ## Storage Rules
 

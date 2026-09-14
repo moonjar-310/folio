@@ -2,7 +2,7 @@ const f=storage.folio;
 if(penpot.currentPage.name!=='00 — Foundations')throw Error('Activate Foundations first');
 for(const [theme,x] of [['light',0],['dark',1400]]){
   const board=f.board('Foundations / '+theme,x,0,1280,1100,penpot.root,theme);
-  f.text(board,'Brand',64,55,'Paper & Folio',54,'ink',theme,'Newsreader',1100);
+  f.text(board,'Brand',64,55,'Folio',54,'ink',theme,'Newsreader',1100);
   f.text(board,'Description',64,135,'A shared language for quiet, intentional planning.',18,'muted',theme,'Geist',1100);
   f.text(board,'Color heading',64,217,'COLOR / '+theme.toUpperCase(),12,'terracotta',theme,'JetBrains Mono',1100);
   Object.entries(f.colors[theme]).forEach(([name,color],i)=>{const px=64+(i%5)*226,py=268+Math.floor(i/5)*151;f.rect(board,'Swatch / '+name,px,py,202,79,name,theme,6,'line');f.text(board,'Color name / '+name,px,py+90,name,13,'ink',theme,'Geist',202);f.text(board,'Color value / '+name,px,py+114,color,10,'muted',theme,'JetBrains Mono',202);});

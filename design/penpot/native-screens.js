@@ -11,7 +11,7 @@ for (const [theme, x] of [['light', 0], ['dark', 1440]]) {
   f.text(home, 'Goals heading', 330, 305, 'WHAT MATTERS · LONG-TERM GOALS', 10, 'muted', theme, 'JetBrains Mono', 500);
   for (const [i,title] of ['Grow as an engineer','Build a notebook','Read, reflect, repeat'].entries()) f.instance(home,'Content/Goal',330+i*262,340,theme,{'Grow as an engineer':title,'DIRECTION 01':'DIRECTION 0'+(i+1)});
   f.text(home,'Task heading',330,596,"Today's intentions",25,'ink',theme,'Newsreader',500);
-  for(const [i,text] of ['Review the authentication architecture','Refine the Paper & Folio design system','Morning pages & a slow coffee','Write the first page of the notebook','A walk, with room to think'].entries())f.row(home,330,645+i*56,text,theme,i===2,['09:00','11:30','07:30','14:00','16:30'][i]);
+  for(const [i,text] of ['Review the authentication architecture','Refine the Folio design system','Morning pages & a slow coffee','Write the first page of the notebook','A walk, with room to think'].entries())f.row(home,330,645+i*56,text,theme,i===2,['09:00','11:30','07:30','14:00','16:30'][i]);
   f.instance(home,'Task/Add',330,925,theme);
   f.instance(home,'Content/QuickNote',330,1010,theme);
   f.text(home,'Recent heading',330,1242,'Recently edited',25,'ink',theme,'Newsreader',500);
@@ -23,7 +23,7 @@ for (const [theme, x] of [['light', 0], ['dark', 1440]]) {
   f.text(todo,'Description',330,219,'A place for everything on your mind. A little less to carry.',14,'muted',theme,'Geist',780);
   f.text(todo,'Task groups',330,291,'Today     Upcoming     Someday     Completed',14,'muted',theme,'Geist',780);
   f.rect(todo,'Active tab',330,327,54,2,'sage',theme);
-  for(const [i,title] of ['Review the authentication architecture','Refine the Paper & Folio design system','Write the first page of the notebook','A walk, with room to think'].entries())f.row(todo,330,371+i*56,title,theme,false,['09:00','11:30','14:00','16:30'][i]);
+  for(const [i,title] of ['Review the authentication architecture','Refine the Folio design system','Write the first page of the notebook','A walk, with room to think'].entries())f.row(todo,330,371+i*56,title,theme,false,['09:00','11:30','14:00','16:30'][i]);
   f.instance(todo,'Task/Add',330,595,theme);
   f.text(todo,'Completed heading',330,708,'A little progress.',25,'ink',theme,'Newsreader',600);
   f.row(todo,330,761,'Morning pages & a slow coffee',theme,true,'07:30');

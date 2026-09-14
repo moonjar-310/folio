@@ -39,17 +39,17 @@ The product should feel like a calm personal planner, not a SaaS dashboard.
 - WebAssembly
 
 ### UI
-- SSR HTML
+- Leptos CSR / browser WASM
 - CSS
-- HTMX
-- Minimal Vanilla JavaScript
+- Rust components and browser state
+- JSON data API; static assets bypass Worker execution
 
 ### Storage
 Cloud:
 - R2: canonical Markdown data
 - D1: metadata, search, tasks, goals, sessions
 
-Future Local Mode:
+Local bootstrap mode:
 - Filesystem
 - SQLite
 

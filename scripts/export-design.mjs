@@ -27,16 +27,16 @@ const components=[
  ['Planner/Day',152,290,r(.5,.5,151,289,'#edf1ed')+t(13,27,'MON',10,colors.muted,'JetBrains Mono')+t(119,29,'14',17,colors.sage,'JetBrains Mono')+r(13,58,13,13,colors.sheet,'#9a9c92',3)+t(35,68,'Review the',11)+t(35,86,'architecture',11)+t(35,109,'09:00',9,colors.muted,'JetBrains Mono')+line(13,125,126)+t(27,154,'＋ Add intention',9,colors.sage,'JetBrains Mono')],
  ['Overlay/Search',560,172,r(.5,.5,559,171,colors.paper,colors.ink,8)+t(24,41,'Find a thought.',27,colors.ink,'Newsreader')+t(525,40,'×',24)+t(24,92,'Search titles and words…',14,colors.muted)+r(443,67,91,39,colors.sage,colors.sage)+t(466,93,'Search',12,'#fff')+t(24,145,'Search your notes by title or content. Esc to close.',10,colors.muted,'JetBrains Mono')]
 ];
-let sheet=r(0,0,1600,2450,colors.paper,colors.paper,0)+t(64,74,'Paper & Folio',48,colors.ink,'Newsreader')+t(64,111,'FOUNDATIONS & REUSABLE COMPONENTS / STITCH → PENPOT',12,colors.muted,'JetBrains Mono');
+let sheet=r(0,0,1600,2450,colors.paper,colors.paper,0)+t(64,74,'Folio',48,colors.ink,'Newsreader')+t(64,111,'FOUNDATIONS & REUSABLE COMPONENTS / STITCH → PENPOT',12,colors.muted,'JetBrains Mono');
 Object.entries(colors).forEach(([name,color],i)=>{const x=64+i*186;sheet+=r(x,151,164,80,color,colors.line)+t(x,255,name,12)+t(x,275,color,10,colors.muted,'JetBrains Mono');});
 sheet+=t(64,347,'Room to think.',40,colors.ink,'Newsreader')+t(650,325,'Geist · Interface & prose',17)+t(650,358,'JetBrains Mono · METADATA',12,colors.muted,'JetBrains Mono');
 let y=420;for(let i=0;i<components.length;i++){const [name,w,h,body]=components[i],x=i%2?840:64;if(i%2===0&&i>0)y+=Math.max(components[i-2][2],components[i-1][2])+64;sheet+=`<g id="${name.replaceAll('/','-')}" transform="translate(${x} ${y})">${t(0,-15,name,12,colors.muted,'JetBrains Mono')}${body}</g>`;await writeFile(new URL(name.replaceAll('/','-').toLowerCase()+'.svg',output),svg(name,w,h,body));}
-await writeFile(new URL('component-library.svg',output),svg('Paper & Folio component library',1600,y+340,sheet));
+await writeFile(new URL('component-library.svg',output),svg('Folio component library',1600,y+340,sheet));
 const tokens={global:{color:Object.fromEntries(Object.entries(colors).map(([key,value])=>[key,{$type:'color',$value:value}])),spacing:Object.fromEntries([4,8,12,16,24,32,40,48].map(n=>[String(n),{$type:'dimension',$value:`${n}px`}])),radius:{control:{$type:'borderRadius',$value:'4px'},container:{$type:'borderRadius',$value:'6px'},dialog:{$type:'borderRadius',$value:'8px'}},font:{heading:{$type:'fontFamily',$value:'Newsreader'},body:{$type:'fontFamily',$value:'Geist'},metadata:{$type:'fontFamily',$value:'JetBrains Mono'}}}};
 await writeFile(new URL('tokens.json',output),JSON.stringify(tokens,null,2));
 const dark={paper:'#141312',sheet:'#1c1b1a',well:'#211f1e',ink:'#ede8e1',muted:'#b9aaa3',line:'#403731',sage:'#a8c5b0',terracotta:'#d67754'};
 let darkSheet=sheet;for(const [key,value] of Object.entries(colors))darkSheet=darkSheet.replaceAll(value,`COLOR_${key}`);for(const [key,value] of Object.entries(dark))darkSheet=darkSheet.replaceAll(`COLOR_${key}`,value);darkSheet=darkSheet.replaceAll('#fff','#18281e').replaceAll('#edf1ed','#26332a').replaceAll('#ba1a1a','#ffb4ab');
-await writeFile(new URL('component-library-dark.svg',output),svg('Paper & Folio dark component library',1600,y+340,darkSheet));
+await writeFile(new URL('component-library-dark.svg',output),svg('Folio dark component library',1600,y+340,darkSheet));
 tokens.light={color:Object.fromEntries(Object.entries(colors).map(([key,value])=>[key,{$type:'color',$value:value}]))};
 tokens.dark={color:Object.fromEntries(Object.entries(dark).map(([key,value])=>[key,{$type:'color',$value:value}]))};
 await writeFile(new URL('tokens.json',output),JSON.stringify(tokens,null,2));

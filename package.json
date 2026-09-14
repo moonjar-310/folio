@@ -1,6 +1,20 @@
 {
-  "name": "paper-and-folio-ui",
+  "name": "folio",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "node preview/server.mjs", "check": "node --check preview/server.mjs && node --check ui/components.mjs && node --check ui/pages.mjs && node --check public/app.js", "test": "node --test tests/ui.test.mjs", "design:export": "node scripts/export-design.mjs" }
+  "scripts": {
+    "dev": "node preview/server.mjs",
+    "check": "node --check preview/server.mjs && node --check ui/components.mjs && node --check ui/pages.mjs && node --check public/app.js",
+    "test": "node --test tests/ui.test.mjs",
+    "design:export": "node scripts/export-design.mjs",
+    "app:build": "node scripts/trunk.mjs build --release --locked",
+    "app:dev": "node scripts/trunk.mjs serve --locked",
+    "app:local": "cargo run -p folio-local",
+    "worker:dev": "wrangler dev --var APP_ENV:development",
+    "worker:migrate:local": "wrangler d1 migrations apply DB --local",
+    "worker:check": "cargo check -p folio-worker --target wasm32-unknown-unknown --locked"
+  },
+  "devDependencies": {
+    "wrangler": "4.131.2"
+  }
 }

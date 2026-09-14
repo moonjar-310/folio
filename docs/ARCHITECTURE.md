@@ -1,210 +1,68 @@
 # Architecture
 
-## 1. Overview
+## Decision — 2026-09-14
 
-Browser
-  |
-  | HTML / HTMX / minimal JS
-  v
-Cloudflare Worker
-  |- SSR
-  |- Auth
-  |- Notes
-  |- Todo
-  |- Planner
-  |- Goals
-  |- Search
-  |
-  |- R2: canonical Markdown
-  `- D1: derived metadata and indexes
+Leptos CSR runs in browser WASM. A Rust Worker serves JSON data and stores notes; it does not render HTML. This supersedes the earlier SSR/HTMX plan, following the user's explicit request to keep UI work in the browser and minimize Worker calls.
 
-## 2. Runtime
+## Runtime and deployment
 
-Server:
-- Rust
-- wasm32-unknown-unknown
-- Cloudflare Workers
+Browser → Static Assets: HTML shell, WASM, JavaScript loader, CSS.
+Browser → /api/* → Rust Worker → D1 / R2.
 
-Client:
-- HTML
-- CSS
-- HTMX
-- minimal Vanilla JavaScript
+One Workers project hosts both, but `run_worker_first` matches only `/api` and `/api/*`. Static files and SPA navigation fallback do not invoke the application Worker. Initial note listing uses one API call; opening a note fetches its Markdown; saving returns metadata so the list updates without another read. UI-only state changes do not call the API.
 
-Rust WASM runs server-side. Do not ship Rust WASM to the browser unless explicitly required later.
+- `crates/web`: Leptos CSR, Trunk build, client state and fetch calls.
+- `crates/core`: serializable contracts, validation and metadata extraction; no runtime-specific dependencies.
+- `crates/worker`: Cloudflare fetch entrypoint and storage bindings, `wasm32-unknown-unknown`.
+- `crates/local`: native Axum/Tokio HTTP adapter and independent local storage.
 
-## 3. Storage Roles
+Cloudflare and local use the same contracts and validation. They have different runtime entrypoints and storage implementations. The Worker WASM binary is not a standalone local server.
 
-### R2
-Canonical note content.
+## Storage
 
-Responsibilities:
-- Markdown files
-- future attachments
-- folder/path hierarchy
+Cloud: R2 `notes/{id}.md` is canonical, D1 stores derived metadata.
+Local: filesystem `vault/{id}.md` is canonical, SQLite stores the same index schema.
 
-### D1
-Derived/query data.
+IDs contain only ASCII letters, digits and hyphens, up to 64 bytes. No user-controlled filesystem paths. Titles/previews are derived from Markdown. The bootstrap intentionally uses a flat ID-based vault; folder and rename support comes later.
 
-Responsibilities:
-- note metadata
-- path
-- title
-- preview
-- updated_at
-- search text
-- parsed tasks
-- goals
-- sessions
+Read paths:
+- List → SQL index, newest 50, no object scans.
+- Open → one canonical Markdown object/file.
+- Save → validate → canonical Markdown write → metadata upsert → summary JSON.
 
-D1 should be rebuildable from R2 where practical.
+## API
 
-## 4. Suggested Tables
+| Method | Path | Result |
+| --- | --- | --- |
+| GET | /api/health | Runtime health, no storage reads |
+| GET | /api/notes | At most 50 NoteSummary entries |
+| GET | /api/notes/{id} | Note containing id and markdown |
+| PUT | /api/notes/{id} | SaveNote body; returns NoteSummary |
 
-### notes
-- id
-- path
-- title
-- preview
-- search_text
-- created_at
-- updated_at
-- size
+Markdown is bounded to 128 KiB; JSON request bodies are separately bounded including escaped characters. Saves are explicit in this bootstrap. No autosave per keystroke or polling. A successful save updates the browser list from its response. In-flight operations disable editor writes/navigation to prevent a stale response from overwriting newer input.
 
-### tasks
-- id
-- note_id?
-- title
-- completed
-- due_date?
-- due_time?
-- created_at
-- updated_at
+## Failures and concurrency
 
-### goals
-- id
-- title
-- description?
-- position
-- status
-- created_at
-- updated_at
+A failed request keeps the active draft and dirty state. Switching notes prompts before discarding edits. Browser unload also prompts when dirty. Persistent browser draft recovery and retry UX beyond explicit Save remain future work.
 
-### sessions
-- id
-- token_hash
-- expires_at
-- created_at
+Canonical data is written before indexing. An index failure must not remove canonical Markdown. Retry Save repairs metadata. Local writes use a temporary file and atomic replacement; local storage operations are serialized under a mutex and run outside the async executor. Cloud writes currently use last-write-wins semantics. ETags/version conflicts and recovery/re-index tooling are required before multi-client use.
 
-### users
-- id
-- username
-- password_hash
-- created_at
-- updated_at
+## Security boundary
 
-## 5. Save Pipeline
+The standalone server binds only to 127.0.0.1. The Worker note API is disabled unless APP_ENV=development, intended only for local Wrangler emulation. Production defaults fail closed. There is no implemented login/session system yet.
 
-Editor
-→ debounce / explicit save
-→ Worker
-→ validate
-→ R2 PUT Markdown
-→ parse metadata/tasks/search text
-→ D1 update
+Future production authentication is single-user username/password with hashed passwords, HttpOnly/Secure/SameSite session cookies and CSRF protection. Do not treat the development gate as authentication. Do not expose the development override publicly.
 
-R2 is written first because Markdown is canonical.
+## Remaining product phases
 
-If D1 update fails, note content must remain recoverable.
+Authentication, autosave/shortcuts, full editor preview, folder operations, SQL pagination/search, Markdown task indexing, Home, Todo, Planner and Goals must be implemented against these shared data contracts. The Node preview and Penpot templates are design references, not the Rust application's completion status.
 
-## 6. Read Pipelines
+## Resource rules
 
-### Note List
-Browser → Worker → D1 → SSR HTML
-
-### Open Note
-Browser → Worker → D1 metadata + R2 Markdown → SSR HTML
-
-### Search
-Browser → Worker → D1 → result list
-
-Do not fetch all R2 objects for note list/search/todo/home.
-
-## 7. Portability
-
-Core logic must not directly depend on Cloudflare APIs.
-
-Use abstractions:
-
-```rust
-trait NoteStorage {
-    async fn get(&self, path: &str) -> Result<String, Error>;
-    async fn put(&self, path: &str, content: &str) -> Result<(), Error>;
-    async fn delete(&self, path: &str) -> Result<(), Error>;
-}
-```
-
-And:
-
-```rust
-trait MetadataRepository {
-    // notes, tasks, goals, search
-}
-```
-
-Implementations:
-
-Cloud:
-- R2NoteStorage
-- D1MetadataRepository
-
-Local:
-- FilesystemNoteStorage
-- SQLiteMetadataRepository
-
-## 8. SSR + HTMX
-
-Use server-rendered HTML by default.
-
-HTMX is appropriate for:
-- task completion
-- task creation
-- goal state changes
-- note list refresh
-- small partial updates
-
-Editor-specific save behavior may use minimal JS/fetch where cleaner.
-
-## 9. Auth
-
-Single-user username/password authentication.
-
-Use server-side sessions with:
-- HttpOnly
-- Secure
-- SameSite cookies
-
-Never store plaintext passwords.
-
-## 10. Failure Model
-
-R2 write succeeds / D1 fails:
-- keep Markdown
-- surface/retry index update
-- support future re-index
-
-Network failure while editing:
-- preserve dirty state
-- show unsaved status
-- never silently discard edits
-
-D1 loss:
-- rebuild from R2
-
-## 11. Cost Rules
-
-- no R2 scan for normal UI
-- no R2 GET per search result
-- no save per keypress
-- bounded D1 queries
-- avoid polling
+- Serve public static assets without executing the Worker.
+- Keep UI-only state in the browser.
+- Avoid duplicate initial queries and refetch-after-save.
+- Bound lists and request bodies.
+- Do not scan R2 for list/search/home.
+- Batch user edits into saves; do not save per keystroke.
+- Measure Worker requests, CPU, SQL reads/writes and R2 operations separately.

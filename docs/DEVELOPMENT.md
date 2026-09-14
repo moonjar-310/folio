@@ -4,7 +4,7 @@
 
 - Rust Worker project
 - routing
-- SSR template strategy
+- Leptos CSR build and shared JSON contracts
 - static assets
 - D1 binding
 - R2 binding
@@ -13,8 +13,11 @@
 
 Done when:
 - Worker deploys
-- health page renders
+- static CSR shell loads without invoking the Worker
+- health API returns JSON
 - D1 and R2 bindings work
+
+Bootstrap implemented: Cargo workspace, Trunk CSR note editor, JSON list/get/put routes, Worker D1/R2 adapter, standalone Axum/filesystem/SQLite adapter, input validation, explicit saves and failure states. This is not the full Notes/Editor phase. Deployment, authentication, autosave, task indexing and multi-client conflict detection remain pending. Production note routes fail closed until authentication exists.
 
 ## Phase 1 — Authentication
 

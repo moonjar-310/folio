@@ -9,3 +9,8 @@ design/stitch/
 *.log
 dist/
 artifacts/
+target/
+.wrangler/
+.dev.vars
+.dev.vars.*
+crates/worker/build/
