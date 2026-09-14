@@ -1,0 +1,6 @@
+{
+  "name": "paper-and-folio-ui",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "node preview/server.mjs", "check": "node --check preview/server.mjs && node --check ui/components.mjs && node --check ui/pages.mjs && node --check public/app.js", "test": "node --test tests/ui.test.mjs", "design:export": "node scripts/export-design.mjs" }
+}

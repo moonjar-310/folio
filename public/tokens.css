@@ -1,0 +1,16 @@
+:root {
+  --paper: #fcf9f8; --sheet: #ffffff; --well: #f6f3f2; --hover: #f0eded;
+  --ink: #242424; --muted: #716e68; --faint: #969189; --line: #e5dfda;
+  --accent: #476552; --accent-soft: #edf1ed; --editorial: #8c4a2f; --error: #ba1a1a;
+  --font-body: 'Geist', system-ui, sans-serif; --font-heading: 'Newsreader', Georgia, serif; --font-meta: 'JetBrains Mono', monospace;
+  --radius-sm: 4px; --radius: 6px; --radius-lg: 8px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  --sidebar-width: 240px; --reading-width: 860px;
+  --on-accent: #ffffff; --accent-hover: #365140; color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --paper: #141312; --sheet: #1c1b1a; --well: #211f1e; --hover: #2b2a28;
+  --ink: #ede8e1; --muted: #b9aaa3; --faint: #a38c84; --line: #403731;
+  --accent: #a8c5b0; --accent-soft: #26332a; --editorial: #d67754; --error: #ffb4ab;
+  --on-accent: #18281e; --accent-hover: #bfd7c5; color-scheme: dark;
+}

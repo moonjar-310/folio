@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {markdown} from '../ui/markdown.mjs';
+import {escape} from '../ui/components.mjs';
+import {home,todo,planner,notes} from '../ui/pages.mjs';
+import {seed} from '../preview/seed.mjs';
+test('Markdown escapes raw HTML and rejects executable links',()=>{const html=markdown('<script>alert(1)</script>\n[x](javascript:alert)\n[x](https://example.org)');assert.ok(!html.includes('<script>'));assert.ok(!html.includes('href="javascript:'));assert.match(html,/href="https:\/\/example.org"/);});
+test('Markdown renders tables, checkboxes, and escaped code',()=>{const html=markdown('| Layer | Role |\n| --- | --- |\n| R2 | Markdown |\n\n- [x] Done\n\n```html\n<img>\n```');assert.match(html,/<table>/);assert.match(html,/☑/);assert.match(html,/&lt;img&gt;/);});
+test('User text is escaped in note fields and task names',()=>{const state=seed();state.notes[0].title='"/><script>alert(1)</script>';state.tasks[0].title='<img src=x onerror=alert(1)>';assert.ok(!notes(state,new URL('http://local/notes')).includes('<script>alert(1)'));assert.ok(!home(state).includes('<img src=x'));assert.equal(escape('A & B'),'A &amp; B');});
+test('Task groups separate completed and unscheduled work',()=>{const state=seed();const completed=todo(state,new URL('http://local/todo?group=Completed'));assert.match(completed,/Morning pages/);assert.ok(!completed.includes('Refine the Paper'));const someday=todo(state,new URL('http://local/todo?group=Someday'));assert.match(someday,/Organize the reading list/);});
+test('Weekly view spans Monday through Sunday across a year boundary',()=>{const html=planner(seed(),new URL('http://local/planner?date=2027-01-01'));assert.match(html,/December 28/);assert.match(html,/Jan 3/);assert.equal((html.match(/class="day-header"/g)||[]).length,7);});

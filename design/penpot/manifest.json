@@ -1,0 +1,118 @@
+{
+  "status": "Editable SVG assets for native Penpot component registration.",
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "navigationLabel": "Folders",
+  "components": [
+    {
+      "name": "Action/Primary",
+      "width": 150,
+      "height": 40,
+      "file": "action-primary.svg"
+    },
+    {
+      "name": "Action/Secondary",
+      "width": 120,
+      "height": 40,
+      "file": "action-secondary.svg"
+    },
+    {
+      "name": "Action/Text",
+      "width": 120,
+      "height": 32,
+      "file": "action-text.svg"
+    },
+    {
+      "name": "Action/Disabled",
+      "width": 150,
+      "height": 40,
+      "file": "action-disabled.svg"
+    },
+    {
+      "name": "Navigation/Item",
+      "width": 216,
+      "height": 40,
+      "file": "navigation-item.svg"
+    },
+    {
+      "name": "Navigation/Selected",
+      "width": 216,
+      "height": 40,
+      "file": "navigation-selected.svg"
+    },
+    {
+      "name": "Input/Search",
+      "width": 216,
+      "height": 38,
+      "file": "input-search.svg"
+    },
+    {
+      "name": "Task/Open",
+      "width": 600,
+      "height": 56,
+      "file": "task-open.svg"
+    },
+    {
+      "name": "Task/Completed",
+      "width": 600,
+      "height": 56,
+      "file": "task-completed.svg"
+    },
+    {
+      "name": "Task/Add",
+      "width": 600,
+      "height": 48,
+      "file": "task-add.svg"
+    },
+    {
+      "name": "Content/Goal",
+      "width": 250,
+      "height": 212,
+      "file": "content-goal.svg"
+    },
+    {
+      "name": "Content/Note",
+      "width": 382,
+      "height": 133,
+      "file": "content-note.svg"
+    },
+    {
+      "name": "Content/QuickNote",
+      "width": 600,
+      "height": 190,
+      "file": "content-quicknote.svg"
+    },
+    {
+      "name": "Navigation/ViewSwitch",
+      "width": 148,
+      "height": 36,
+      "file": "navigation-viewswitch.svg"
+    },
+    {
+      "name": "Status/Saved",
+      "width": 160,
+      "height": 25,
+      "file": "status-saved.svg"
+    },
+    {
+      "name": "Status/SaveFailed",
+      "width": 250,
+      "height": 25,
+      "file": "status-savefailed.svg"
+    },
+    {
+      "name": "Planner/Day",
+      "width": 152,
+      "height": 290,
+      "file": "planner-day.svg"
+    },
+    {
+      "name": "Overlay/Search",
+      "width": 560,
+      "height": 172,
+      "file": "overlay-search.svg"
+    }
+  ]
+}

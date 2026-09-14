@@ -1,0 +1,11 @@
+.local/
+node_modules/
+design/stitch/
+.codex/
+.agents/
+.env
+.env.*
+!.env.example
+*.log
+dist/
+artifacts/
