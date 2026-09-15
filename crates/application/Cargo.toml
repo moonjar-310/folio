@@ -1,0 +1,18 @@
+[package]
+name = "folio-application"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+folio-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+pbkdf2 = "0.12"
+subtle = "2"
+uuid = { version = "1", features = ["v4", "js"] }
+url = "2"
+[dev-dependencies]
+folio-storage-local = { path = "../storage-local" }
+tempfile = "3"
+futures = "0.3"

@@ -158,6 +158,12 @@ Note list displays:
 
 Represents Markdown folder hierarchy.
 
+Folders form an expandable tree with files shown under their containing folder.
+Click a folder to expand/collapse; click a file to open it. Preserve expansion
+choices across reload. Folder rows expose a ⋮ menu and the same right-click menu
+with Rename folder, New folder, and New file. The Folders section also offers
+creation actions. Renaming a folder moves descendant files while preserving Markdown content. File paths are canonical; losing indexes or auxiliary note metadata must not prevent file discovery, opening or editing. See [folder behavior](FOLDERS.md).
+
 Example:
 
 Folders

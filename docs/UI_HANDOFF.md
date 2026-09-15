@@ -1,46 +1,27 @@
-# UI implementation and Stitch handoff
+# Folio UI implementation
 
-## Source
+## Current Rust application — 2026-09-15
 
-Source: the owner's private Minimal Paper Planner Stitch project. Private project identifiers and download links are intentionally excluded from the public repository.
+The Folio Penpot file was read through MCP, including Home, Todo, Planner, Notes and the common sidebar. The implementation follows the product specification when source patterns contain additional design-only content.
 
-Retrieved through Stitch MCP on 2026-09-14. Four light app screens, a dark Home screen, and the emblem were inspected. The private export is retained locally under ignored `design/stitch/`.
+- `crates/web/src/components.rs`: Sidebar, Folio emblem/SVG icons, TaskRow, TaskForm, GoalCard, NoteCard and section headings.
+- `crates/web/src/folder_tree.rs`: nested folder/file explorer, disclosure state, context menus and create/rename dialogs. [Folder interaction contract](FOLDERS.md).
+- `crates/web/src/pages.rs`: Home, Todo, daily/weekly Planner and Settings.
+- `crates/web/src/editor.rs`: Notes browser, rename/move/archive/delete, Markdown editor and sanitized preview.
+- `crates/web/src/overlays.rs`: authentication and modal SQL search.
+- `crates/web/src/state.rs`: API calls, editor persistence, navigation, task/goal updates, dates and theme state.
+- `crates/web/style.css`: shared Light/Dark tokens, 240 px sidebar, responsive layouts and Markdown typography.
 
-## Design decisions
+The UI uses the provided Folio emblem and SVG icon assets. It uses semantic HTML, reusable components and actual data. Sample dates/counts, tags, analytics, artificial synchronization claims and unrelated source-pattern controls are not product features.
 
-Keep the Stitch theme's warm papers, Newsreader headings, Geist interface text, JetBrains Mono metadata, hairline borders, ruled task rows, sidebar, and focused editor column. Apply the product docs' muted green to selected navigation, primary actions, and completion. Keep terracotta as a small editorial accent. Normalize radii to 4/6/8 px.
+The desktop sidebar is persistent. Below 850 px it becomes a drawer; below 600 px the note browser/editor and weekly planner stack vertically. CSS variables switch themes without recreating application state. Font stacks use Newsreader, Geist and JetBrains Mono with readable system fallbacks.
 
-The original Stitch export contains a broken emblem represented by URL text, decorative sync claims, tags, backlinks, benchmark widgets, and future daily-log append behavior. The implementation uses a simple book outline and real local save status, and follows the product specification for supported features.
+See [Folio design contracts](../design/folio/README.md), [design tokens and direction](DESIGN.md), and [verification results](VERIFICATION.md).
 
-## Component map
+## Historical reference
 
-| Family | Components | Code |
-| --- | --- | --- |
-| Navigation | sidebar, navigation item, notebook row, search trigger, topbar, view switch | `sidebar`, `layout`, page markup |
-| Actions | primary, secondary, text, disabled, icon | `button`, `icon` |
-| Tasks | open, completed, source link, due date, inline add | `taskRow`, `taskForm` |
-| Content | goal, note row, section heading, quick note | `goalCard`, `noteRow`, `sectionHeading`, Home |
-| Editor | title, notebook select, body, preview, status, footer | Notes + `public/app.js` |
-| Feedback | empty, failed save, recovered draft, local status | page markup + editor state |
-| Overlay | search dialog, mobile drawer | `layout`, `sidebar` |
+The earlier Node preview and editable Penpot assembly assets remain in `preview/`, `ui/`, `public/` and `design/penpot/`. Run the preview using `npm run preview:dev`. These are design references; the Rust Leptos application is the current implementation.
 
-## Responsive behavior
+The connected Penpot file contains `01 — Design System`, `02 — Screens`, and `03 — Archive`. The hidden previous-drafts group is a backup. Core components and the five current screen instances guide implementation; source-pattern variants are not separate frontend components.
 
-- Wide desktop: 240 px navigation, centered Home writing column, full weekly spread.
-- Below 850 px: collapsible navigation.
-- Below 600 px: goals and notes stack; weekly columns become daily sections; the note list sits above the editor.
-- Visible focus, keyboard shortcuts, reduced-motion support, labeled controls, live save feedback, and skip navigation.
-
-## Penpot handoff
-
-Generate with `npm run design:export`. The component SVGs use editable text, rectangles, lines, and groups. Install Newsreader, Geist, and JetBrains Mono in the target environment when exact font matching is required.
-
-Created native Penpot pages: `00 — Foundations`, `01 — Components`, `02 — Screens`, `03 — Responsive`, and a private Stitch reference page. Desktop Home, Todo, Planner, and Notes have Light/Dark versions; mobile Home and Notes also have both themes. Screens use native editable text/shapes and registered component instances, not flattened screenshots. Foundations include 18 library colors, six typography styles, and 29 semantic/spacing/radius tokens.
-
-The private Penpot endpoint, token, file identifiers, and connection diagnostics are intentionally excluded from this public handoff. See the local handoff status for native import progress.
-
-## Latest reference update
-
-Navigation uses Folders. Light and Dark share semantic tokens and component geometry. Dark colors follow the updated Stitch screen, with sage retained for interactive and completed states. The sidebar and Settings expose a persistent theme switch. Public previews contain synthetic sample content only.
-
-Official references: [Penpot MCP](https://help.penpot.app/mcp/), [components](https://help.penpot.app/user-guide/design-systems/components/), [tokens](https://help.penpot.app/user-guide/design-systems/design-tokens/).
+Private endpoint credentials and file identifiers remain outside public documentation.

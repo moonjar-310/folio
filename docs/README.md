@@ -1,61 +1,23 @@
-# Personal Planner Note App
+# Folio documentation
 
-A lightweight self-hosted personal planner and Markdown notebook for the web.
+Folio combines a personal planner, long-term goals, tasks and Markdown notes.
 
-## Purpose
+## Read first
 
-Combine:
-- Long-term Goals
-- Daily / Weekly Planner
-- Todo management
-- Markdown Notes
+1. [Product specification](PRODUCT_SPEC.md)
+2. [Architecture and API](ARCHITECTURE.md)
+3. [Design system](DESIGN.md)
+4. [Development status](DEVELOPMENT.md)
 
-The product should feel like a calm personal planner, not a SaaS dashboard.
+## Build and operate
 
-## Core Principles
+- [Repository quick start](../README.md)
+- [Local and Cloudflare operation](DEPLOYMENT.md)
+- [Verification results](VERIFICATION.md)
+- [UI implementation handoff](UI_HANDOFF.md)
+- [Folio Penpot implementation contracts](../design/folio/README.md)
+- [Contributor constraints](AGENTS.md)
 
-- Simple
-- Fast
-- Web-first
-- Self-hosted
-- Zero-cost oriented
-- Portable
-- Markdown-first
+The browser is Leptos CSR. The shared Rust application selects native filesystem/SQLite or Cloudflare R2/D1 through an adapter crate. Markdown is canonical, and routine listings/search/planner queries use SQL indexes.
 
-## Main Navigation
-
-- Home
-- Planner
-- Todo
-- Notes
-- Folders
-- Settings
-
-## Tech Direction
-
-### Runtime
-- Rust
-- Cloudflare Workers
-- WebAssembly
-
-### UI
-- Leptos CSR / browser WASM
-- CSS
-- Rust components and browser state
-- JSON data API; static assets bypass Worker execution
-
-### Storage
-Cloud:
-- R2: canonical Markdown data
-- D1: metadata, search, tasks, goals, sessions
-
-Local bootstrap mode:
-- Filesystem
-- SQLite
-
-See:
-- PRODUCT_SPEC.md
-- ARCHITECTURE.md
-- DESIGN.md
-- DEVELOPMENT.md
-- AGENTS.md
+Home, Planner, Todo, Notes, Folders and Settings are the primary navigation. The product remains a quiet personal planner; graph views, tags, collaboration, AI and calendar integrations are outside this scope.

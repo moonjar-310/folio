@@ -1,0 +1,10 @@
+[package]
+name = "folio-storage-local"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+[dependencies]
+folio-core.workspace = true
+serde_json.workspace = true
+rusqlite = { version = "0.37", features = ["bundled"] }
+tempfile = "3"

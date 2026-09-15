@@ -1,153 +1,53 @@
-# Development Plan
+# Development and verification
 
-## Phase 0 — Bootstrap
+## Implemented on 2026-09-15
 
-- Rust Worker project
-- routing
-- Leptos CSR build and shared JSON contracts
-- static assets
-- D1 binding
-- R2 binding
-- local dev setup
-- formatting/linting
+The Rust application now implements the product's Home, Todo, daily/weekly Planner, Notes/editor, Folders, Goals, Settings and authentication flows.
 
-Done when:
-- Worker deploys
-- static CSR shell loads without invoking the Worker
-- health API returns JSON
-- D1 and R2 bindings work
+### UI
 
-Bootstrap implemented: Cargo workspace, Trunk CSR note editor, JSON list/get/put routes, Worker D1/R2 adapter, standalone Axum/filesystem/SQLite adapter, input validation, explicit saves and failure states. This is not the full Notes/Editor phase. Deployment, authentication, autosave, task indexing and multi-client conflict detection remain pending. Production note routes fail closed until authentication exists.
+- Folio Penpot Home/Todo/Planner/Notes and 240 px navigation sidebar inspected through MCP.
+- Reusable Sidebar, Icon, TaskRow, TaskList, TaskForm, GoalCard, NoteCard and section components.
+- Warm semantic tokens, Newsreader/Geist/JetBrains Mono font stacks, quiet green actions and editorial typography.
+- Light/Dark appearance, responsive sidebar/drawer and stacked mobile editor/planner.
+- SQL search dialog, keyboard shortcuts, note preview, dirty state, autosave, explicit retry and draft recovery.
+- Native form controls, labels, focus styles, live feedback and a skip link.
 
-## Phase 1 — Authentication
+### Backend
 
-Implement:
-- setup/login
-- logout
-- server-side sessions
-- auth guard
+- Shared application services and explicit environment adapter.
+- Local implementation: filesystem/SQLite; Cloudflare implementation: R2/D1.
+- Single-user setup/login/logout, expiring sessions, CSRF and login throttling.
+- Note CRUD, rename via Markdown title, canonical folder/file paths, nested folders, archive, SQL search/pagination.
+- Markdown task indexing with source edits, standalone tasks and due date/time validation.
+- Goals create/edit/order/complete/archive.
+- Revision conflicts, R2 conditional writes, per-note leases and canonical-data preservation after SQL failure.
+- Five shared SQL migrations, applied automatically in native mode and through Wrangler in cloud mode.
 
-Done when:
-- unauthenticated users cannot access app
-- login/logout work correctly
+## Verification commands
 
-## Phase 2 — Notes Core
+```sh
+cargo fmt --all --check
+cargo test --locked
+cargo test -p folio-web --locked
+cargo clippy --all-targets --locked -- -D warnings
+cargo clippy -p folio-web -p folio-worker --target wasm32-unknown-unknown --locked -- -D warnings
+npm run app:build
+npm run worker:package
+```
 
-Implement:
-- create
-- open
-- save
-- rename
-- move
-- archive/delete
-- folder tree
-- note list
+The application tests cover unauthorized requests, setup, CSRF/origin failures, persistence, source-checkbox changes, stale revisions, failure preservation, dates, task identity after insertion/reordering, note pagination, date filtering, concurrent-save leases, cloud setup gating, expired sessions and login throttling. The editor test covers raw HTML, unsafe links and table rendering.
 
-Rules:
-- R2 stores Markdown
-- D1 stores metadata
+`scripts/smoke-product.mjs` runs the same HTTP workflow against disposable native and Wrangler environments. It creates synthetic test data and checks sessions, folders, notes, search, tasks, goals, conflicts, archive/delete and logout.
 
-## Phase 3 — Editor
+Browser checks cover login, Korean Markdown editing, autosave, preview, source-task completion, search, theme persistence and mobile layout. Detailed final results are maintained in [verification](VERIFICATION.md).
 
-Implement:
-- Markdown editing
-- dirty state
-- ~3 second debounce
-- Ctrl/Cmd + S
-- save status
-- basic render/preview
+## Operation boundary
 
-Do not save per keypress.
+A successful build/emulator test is not a live deployment. Real Cloudflare resource configuration, remote migration, production CPU sizing and deployment are described in [DEPLOYMENT.md](DEPLOYMENT.md). Password hashing may exceed the Free CPU allowance. No cloud resources are provisioned automatically.
 
-## Phase 4 — Search
+The historical Node preview remains a separate design utility, not an alternate production backend.
 
-Implement:
-- normalize searchable text
-- D1 search
-- title/preview/path results
-- Ctrl/Cmd + K
+The expandable folder/file tree, context menus and resumable folder renames are described in [FOLDERS.md](FOLDERS.md).
 
-No R2 scan.
-
-## Phase 5 — Todo
-
-Implement:
-- Markdown checkbox parsing
-- task index
-- Today
-- Upcoming
-- Someday
-- Completed
-- source note link
-- complete/reopen task
-
-Be careful about task identity when re-parsing Markdown.
-
-## Phase 6 — Home
-
-Implement:
-- current date
-- What Matters / Goals
-- today's tasks
-- Quick Note
-- Recently Edited
-- Daily Note access
-
-## Phase 7 — Planner
-
-Implement:
-- Daily
-- Weekly
-- date navigation
-- task creation/completion
-- due date changes
-
-Do not build calendar integration.
-
-## Phase 8 — Goals
-
-Implement:
-- create
-- edit
-- reorder
-- complete
-- archive
-
-No Goal → Todo link required.
-
-## Phase 9 — Responsive / Polish
-
-- Folders terminology throughout navigation and editor controls
-- Light/Dark semantic tokens and pre-paint theme selection
-- persistent theme toggle in sidebar and Settings
-- verify theme changes while editing do not discard drafts
-
-- tablet sidebar behavior
-- mobile drawer
-- keyboard navigation
-- focus states
-- loading/error states
-- accessibility
-- visual cleanup
-
-## Security
-
-Required:
-- no plaintext password storage
-- HttpOnly session cookie
-- Secure cookie in production
-- SameSite
-- CSRF protection for mutation routes
-- input size limits
-- path validation
-- path traversal prevention
-- escape HTML
-- disable raw Markdown HTML initially unless safely sanitized
-
-## Performance / Cost
-
-- no R2 scan on normal render
-- no R2 GET per search result
-- no save per keypress
-- bounded D1 queries
-- paginate large lists
+Path storage supports optional identities, journaled moves, legacy conversion and cache rebuilding. See [architecture](ARCHITECTURE.md) for the recovery boundary.

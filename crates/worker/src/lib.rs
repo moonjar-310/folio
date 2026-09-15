@@ -1,134 +1,91 @@
-use folio_core::{
-    ApiError, LIST_LIMIT, MAX_REQUEST_BYTES, Note, SaveNote, object_key, summarize, valid_id,
-    validate_note,
-};
+#![cfg(target_arch = "wasm32")]
+use folio_adapter::RuntimeStore;
+use folio_application::Application;
+use folio_core::MAX_REQUEST_BYTES;
+use futures_util::StreamExt;
 use worker::*;
-
 fn error(status: u16, message: &str) -> Result<Response> {
-    Ok(Response::from_json(&ApiError {
-        message: message.into(),
-    })?
-    .with_status(status))
+    Ok(Response::from_json(&serde_json::json!({"message":message}))?.with_status(status))
 }
-
 async fn handle(mut req: Request, env: Env) -> Result<Response> {
-    let path = req.path();
-    if path == "/api/health" && req.method() == Method::Get {
+    if req.path() == "/api/health" && req.method() == Method::Get {
         return Response::from_json(&serde_json::json!({"status":"ok","runtime":"cloudflare"}));
     }
-    // Bootstrap is local-development only until session authentication is implemented.
-    // Missing/production configuration must never expose private notes anonymously.
-    if env
-        .var("APP_ENV")
-        .map(|v| v.to_string())
-        .unwrap_or_default()
-        != "development"
+    let method = req.method().to_string();
+    if method != "GET"
+        && req
+            .headers()
+            .get("content-type")?
+            .unwrap_or_default()
+            .split(';')
+            .next()
+            != Some("application/json")
     {
-        return error(
-            503,
-            "Note API is disabled until authentication is configured",
-        );
+        return error(415, "Expected application/json");
     }
-    if path == "/api/notes" && req.method() == Method::Get {
-        let db = env.d1("DB")?;
-        let rows = db.prepare("SELECT id,title,preview,updated_at FROM notes ORDER BY updated_at DESC,id LIMIT ?1")
-            .bind(&[(LIST_LIMIT as u32).into()])?.all().await?;
-        return Response::from_json(&rows.results::<folio_core::NoteSummary>()?);
+    if req
+        .headers()
+        .get("content-length")?
+        .and_then(|s| s.parse::<usize>().ok())
+        .is_some_and(|n| n > MAX_REQUEST_BYTES)
+    {
+        return error(413, "Request too large");
     }
-    let Some(id) = path.strip_prefix("/api/notes/") else {
-        return error(404, "API route not found");
+    let url = req.url()?;
+    let session = req
+        .headers()
+        .get("cookie")?
+        .unwrap_or_default()
+        .split(';')
+        .find_map(|c| c.trim().strip_prefix("folio_session=").map(String::from))
+        .unwrap_or_default();
+    let mut input = folio_application::Request {
+        method,
+        path: req.path(),
+        query: url.query().unwrap_or("").into(),
+        body: Vec::new(),
+        session,
+        csrf: req.headers().get("x-csrf-token")?.unwrap_or_default(),
+        origin: req.headers().get("origin")?,
+        expected_origin: url.origin().ascii_serialization(),
+        client: req
+            .headers()
+            .get("cf-connecting-ip")?
+            .unwrap_or("local-emulator".into()),
+        setup_token: req.headers().get("x-setup-token")?.unwrap_or_default(),
+        secure: url.scheme() == "https",
     };
-    if !valid_id(id) {
-        return error(400, "Invalid note ID");
-    }
-    let key = object_key(id).map_err(|e| Error::RustError(e.into()))?;
-    match req.method() {
-        Method::Get => {
-            let Some(object) = env.bucket("NOTES")?.get(&key).execute().await? else {
-                return error(404, "Note not found");
-            };
-            let markdown = object
-                .body()
-                .ok_or_else(|| Error::RustError("Missing object body".into()))?
-                .text()
-                .await?;
-            Response::from_json(&Note {
-                id: id.into(),
-                markdown,
-            })
-        }
-        Method::Put => {
-            let url = req.url()?;
-            if let Some(origin) = req.headers().get("origin")?
-                && origin != url.origin().ascii_serialization()
-            {
-                return error(403, "Cross-origin write rejected");
-            }
-            if req
-                .headers()
-                .get("content-type")?
-                .is_none_or(|v| v.split(';').next().unwrap_or("").trim() != "application/json")
-            {
-                return error(415, "Expected application/json");
-            }
-            if req
-                .headers()
-                .get("content-length")?
-                .and_then(|v| v.parse::<usize>().ok())
-                .is_some_and(|n| n > MAX_REQUEST_BYTES)
-            {
+    if input.method != "GET" {
+        let mut stream = req.stream()?;
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            if input.body.len() + chunk.len() > MAX_REQUEST_BYTES {
                 return error(413, "Request too large");
             }
-            // Bound even chunked bodies before deserializing, not just Content-Length.
-            let mut stream = req.stream()?;
-            use futures_util::StreamExt;
-            let mut bytes = Vec::new();
-            while let Some(chunk) = stream.next().await {
-                let chunk = chunk?;
-                if bytes.len() + chunk.len() > MAX_REQUEST_BYTES {
-                    return error(413, "Request too large");
-                }
-                bytes.extend_from_slice(&chunk);
-            }
-            let input: SaveNote = match serde_json::from_slice(&bytes) {
-                Ok(input) => input,
-                Err(_) => return error(400, "Invalid note JSON"),
-            };
-            if let Err(message) = validate_note(id, &input.markdown) {
-                return error(400, message);
-            }
-            let note = Note {
-                id: id.into(),
-                markdown: input.markdown,
-            };
-            let summary = summarize(&note, Date::now().as_millis());
-            let db = env.d1("DB")?;
-            let statement = db.prepare("INSERT INTO notes (id,title,preview,updated_at) VALUES (?1,?2,?3,?4) ON CONFLICT(id) DO UPDATE SET title=excluded.title,preview=excluded.preview,updated_at=excluded.updated_at")
-                .bind(&[summary.id.clone().into(), summary.title.clone().into(), summary.preview.clone().into(), (summary.updated_at as f64).into()])?;
-            env.bucket("NOTES")?
-                .put(&key, note.markdown)
-                .execute()
-                .await?;
-            let index = statement.run().await;
-            if !index.is_ok_and(|result| result.success()) {
-                return error(
-                    503,
-                    "Markdown saved; index update failed. Retry Save to repair the index.",
-                );
-            }
-            Response::from_json(&summary)
+            input.body.extend_from_slice(&chunk);
         }
-        _ => error(405, "Method not allowed"),
     }
+    let store = RuntimeStore::new(&env).map_err(Error::RustError)?;
+    let mut service = Application {
+        store,
+        now: Date::now().as_millis(),
+        setup_secret: env.secret("FOLIO_SETUP_TOKEN").ok().map(|s| s.to_string()),
+        runtime: "cloudflare",
+    };
+    let result = service.handle(input).await;
+    let mut response = Response::from_json(&result.body)?.with_status(result.status);
+    if let Some(cookie) = result.cookie {
+        response.headers_mut().set("Set-Cookie", &cookie)?;
+    }
+    Ok(response)
 }
-
 #[event(fetch)]
 pub async fn fetch(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     let mut response = match handle(req, env).await {
-        Ok(response) => response,
+        Ok(r) => r,
         Err(e) => {
-            console_error!("API failure: {e}");
-            error(503, "Storage unavailable; your draft has not been cleared.")?
+            console_error!("{e}");
+            error(503, "Storage unavailable. Your draft is preserved.")?
         }
     };
     response.headers_mut().set("Cache-Control", "no-store")?;

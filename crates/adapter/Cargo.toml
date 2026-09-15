@@ -1,0 +1,11 @@
+[package]
+name = "folio-adapter"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+[features]
+local = ["dep:folio-storage-local"]
+cloudflare = ["dep:folio-storage-cloudflare"]
+[dependencies]
+folio-storage-local = { path = "../storage-local", optional = true }
+folio-storage-cloudflare = { path = "../storage-cloudflare", optional = true }

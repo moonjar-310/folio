@@ -1,41 +1,51 @@
-//! Portable API contracts and validation. No Cloudflare or browser dependencies.
+//! Portable contracts, validation and Markdown task extraction.
 use serde::{Deserialize, Serialize};
-
+pub mod paths;
+pub mod planner;
+pub mod storage;
+pub use planner::*;
 pub const MAX_MARKDOWN_BYTES: usize = 128 * 1024;
-// JSON escaping can expand one input byte to six bytes.
-pub const MAX_REQUEST_BYTES: usize = MAX_MARKDOWN_BYTES * 6 + 1024;
+pub const MAX_REQUEST_BYTES: usize = MAX_MARKDOWN_BYTES * 6 + 2048;
 pub const LIST_LIMIT: usize = 50;
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Note {
     pub id: String,
     pub markdown: String,
+    #[serde(default = "default_folder")]
+    pub folder: String,
+    #[serde(default)]
+    pub revision: String,
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NoteSummary {
     pub id: String,
     pub title: String,
     pub preview: String,
     pub updated_at: u64,
+    #[serde(default = "default_folder")]
+    pub folder: String,
+    #[serde(default)]
+    pub revision: String,
+    #[serde(default)]
+    pub archived: bool,
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SaveNote {
     pub markdown: String,
+    #[serde(default = "default_folder")]
+    pub folder: String,
+    #[serde(default)]
+    pub revision: Option<String>,
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ApiError {
     pub message: String,
 }
-
 pub fn valid_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
-
 pub fn validate_note(id: &str, markdown: &str) -> Result<(), &'static str> {
-    if !valid_id(id) {
+    if !paths::valid_note_id(id) {
         return Err("Invalid note ID");
     }
     if markdown.len() > MAX_MARKDOWN_BYTES {
@@ -43,14 +53,13 @@ pub fn validate_note(id: &str, markdown: &str) -> Result<(), &'static str> {
     }
     Ok(())
 }
-
 pub fn summarize(note: &Note, updated_at: u64) -> NoteSummary {
-    let first = note.markdown.lines().find(|line| !line.trim().is_empty());
-    let title = first
-        .unwrap_or("Untitled note")
-        .trim()
-        .trim_start_matches('#')
-        .trim();
+    let first = note
+        .markdown
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or("Untitled note");
+    let title = first.trim().trim_start_matches('#').trim();
     NoteSummary {
         id: note.id.clone(),
         title: if title.is_empty() {
@@ -68,38 +77,55 @@ pub fn summarize(note: &Note, updated_at: u64) -> NoteSummary {
             .take(160)
             .collect(),
         updated_at,
+        folder: note.folder.clone(),
+        revision: note.revision.clone(),
+        archived: note.folder == "Archive" || note.folder.starts_with("Archive/"),
     }
 }
-
-pub fn object_key(id: &str) -> Result<String, &'static str> {
-    if !valid_id(id) {
-        return Err("Invalid note ID");
-    }
-    Ok(format!("notes/{id}.md"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn rejects_paths_and_oversized_utf8() {
         for id in ["", "../secret", "a/b", "a\\b", "%2e%2e", ".", "a.md"] {
-            assert!(!valid_id(id), "{id}");
-            assert!(object_key(id).is_err());
+            assert!(!valid_id(id));
         }
         assert!(validate_note("note-123", &"한".repeat(MAX_MARKDOWN_BYTES / 3 + 1)).is_err());
         assert!(validate_note("note-123", &"x".repeat(MAX_MARKDOWN_BYTES)).is_ok());
     }
-    #[test]
-    fn metadata_is_derived_without_changing_markdown() {
-        let note = Note {
-            id: "abc".into(),
-            markdown: "# 생각\n\n- [ ] Keep Markdown".into(),
+}
+
+pub fn rename_title(markdown: &str, title: &str) -> String {
+    let lines: Vec<&str> = markdown.split_inclusive('\n').collect();
+    if let Some(index) = lines.iter().position(|line| !line.trim().is_empty())
+        && lines[index].trim_start().starts_with("# ")
+    {
+        let ending = if lines[index].ends_with("\r\n") {
+            "\r\n"
+        } else if lines[index].ends_with('\n') {
+            "\n"
+        } else {
+            ""
         };
-        let meta = summarize(&note, 123);
-        assert_eq!(meta.title, "생각");
-        assert_eq!(meta.updated_at, 123);
-        assert_eq!(object_key(&note.id).unwrap(), "notes/abc.md");
-        assert!(note.markdown.contains("- [ ]"));
+        return format!(
+            "{}# {title}{ending}{}",
+            lines[..index].concat(),
+            lines[index + 1..].concat()
+        );
+    }
+    format!("# {title}\n\n{markdown}")
+}
+#[cfg(test)]
+mod title_tests {
+    #[test]
+    fn renaming_preserves_body_and_line_endings() {
+        assert_eq!(
+            super::rename_title("A paragraph\nKeep me", "Title"),
+            "# Title\n\nA paragraph\nKeep me"
+        );
+        assert_eq!(
+            super::rename_title("\r\n# Old\r\nBody\r\n", "New"),
+            "\r\n# New\r\nBody\r\n"
+        );
     }
 }

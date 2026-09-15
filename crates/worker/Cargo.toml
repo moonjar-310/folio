@@ -3,13 +3,12 @@ name = "folio-worker"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
-
 [lib]
 crate-type = ["cdylib"]
-
 [dependencies]
 folio-core.workspace = true
-serde.workspace = true
+folio-application.workspace = true
+folio-adapter = { workspace = true, features = ["cloudflare"] }
 serde_json.workspace = true
 worker = { version = "0.8.5", features = ["d1"] }
 futures-util = "0.3"

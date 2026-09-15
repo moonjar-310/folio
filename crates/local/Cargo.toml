@@ -3,16 +3,12 @@ name = "folio-local"
 version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
-
 [dependencies]
 folio-core.workspace = true
+folio-application.workspace = true
+folio-adapter = { workspace = true, features = ["local"] }
 serde_json.workspace = true
 axum = "0.8"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
 tower-http = { version = "0.6", features = ["fs"] }
-rusqlite = { version = "0.37", features = ["bundled"] }
-tempfile = "3"
-
-[dev-dependencies]
-tower = { version = "0.5", features = ["util"] }
-http-body-util = "0.1"
+futures = "0.3"

@@ -50,3 +50,10 @@ Penpot은 Stitch의 시각적 원본을 유지하면서 웹에서 재사용할 �
 ## 아이콘
 
 `icons/`에 Material Symbols SVG 52종과 라이선스를 포함했다. `fill="currentColor"`로 색상 토큰을 상속하며, `icon-names.ts`가 허용되는 이름을 정의한다. 아이콘 폰트의 ligature 문자열을 UI 텍스트로 넣지 않는다. Penpot에서도 동일한 SVG 벡터를 공통 아이콘 에셋으로 사용한다.
+
+## Folder explorer update — 2026-09-15
+
+`02 — Screens`에 `Folio / Folders / Tree and context menus / Light`와
+`Folio / Folders / Dialogs and collapsed state / Dark` 보드를 추가했다.
+폴더/파일 계층, 펼침·접힘, ⋮/우클릭 메뉴, 이름 변경·하위 폴더·파일 생성 UI를
+네이티브 편집 가능한 레이어로 정의했다. [구현 계약](../../docs/FOLDERS.md)을 따른다.
