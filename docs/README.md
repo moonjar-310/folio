@@ -14,6 +14,7 @@ Folio combines a personal planner, long-term goals, tasks and Markdown notes.
 - [Repository quick start](../README.md)
 - [Local and Cloudflare operation](DEPLOYMENT.md)
 - [Verification results](VERIFICATION.md)
+- [Personal desktop/mobile app feasibility and distribution plan](CLIENT_APPS.md)
 - [UI implementation handoff](UI_HANDOFF.md)
 - [Folio Penpot implementation contracts](../design/folio/README.md)
 - [Contributor constraints](AGENTS.md)
