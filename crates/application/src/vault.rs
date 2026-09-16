@@ -257,8 +257,12 @@ impl<S: Store> Application<S> {
         Ok(entries)
     }
     pub(crate) async fn vault_folders(&mut self) -> Result<Value> {
+        let entries = self.all_entries().await?;
+        self.vault_folders_from_entries(&entries).await
+    }
+    pub(crate) async fn vault_folders_from_entries(&mut self, entries: &[Entry]) -> Result<Value> {
         let mut folders = std::collections::BTreeSet::new();
-        for entry in self.all_entries().await? {
+        for entry in entries {
             if entry
                 .path
                 .split('/')
@@ -294,6 +298,14 @@ impl<S: Store> Application<S> {
         &mut self,
         q: &std::collections::HashMap<String, String>,
     ) -> Result<Value> {
+        let entries = self.all_entries().await?;
+        self.browse_notes_from_entries(q, &entries).await
+    }
+    pub(crate) async fn browse_notes_from_entries(
+        &mut self,
+        q: &std::collections::HashMap<String, String>,
+        entries: &[Entry],
+    ) -> Result<Value> {
         let folder = q.get("folder").map(String::as_str).unwrap_or("");
         let exact = q.get("exact").is_some_and(|s| s == "true");
         let archive = folder == "Archive"
@@ -306,7 +318,6 @@ impl<S: Store> Application<S> {
             .min(100_000);
         let mut items = Vec::new();
         // Metadata-only listing. Markdown bodies are read only when opening or rebuilding.
-        let entries = self.all_entries().await?;
         let mut cached = std::collections::HashMap::new();
         for chunk in entries.chunks(500) {
             let keys: Vec<_> = chunk.iter().map(|e| e.path.clone()).collect();

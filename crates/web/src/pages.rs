@@ -160,7 +160,7 @@ pub fn Settings(state: AppState) -> impl IntoView {
         <section><SectionHeading title="Keyboard shortcuts" icon="notes"><span></span></SectionHeading><dl class="shortcuts"><dt>"Search"</dt><dd><kbd>"Ctrl / ⌘ K"</kbd></dd><dt>"New note"</dt><dd><kbd>"Ctrl / ⌘ N"</kbd></dd><dt>"Save"</dt><dd><kbd>"Ctrl / ⌘ S"</kbd></dd><dt>"Quick Note"</dt><dd><kbd>"Ctrl / ⌘ Shift N"</kbd></dd></dl></section>
         <section><SectionHeading title="Account" icon="settings"><span></span></SectionHeading><div class="setting-row"><span>{move||state.username.get()}</span><button on:click=move |_|spawn_local(async move{
             if !state.save().await{return;}
-            match state.api("POST","/api/auth/logout",json!({})).await{Ok(_)=>{state.authenticated.set(false);state.csrf.set(String::new());state.notes.set(vec![]);state.tasks.set(vec![]);state.goals.set(vec![]);state.active.set(new_note("Personal".into()));},Err(e)=>state.error.set(e)}
+            match state.api("POST","/api/auth/logout",json!({})).await{Ok(data)=>{state.authenticated.set(false);state.csrf.set(String::new());state.access_token.set(String::new());state.token_deadline.set(0.0);state.notes.set(vec![]);state.tasks.set(vec![]);state.goals.set(vec![]);state.active.set(new_note("Personal".into()));if data["logout_url"]=="/cdn-cgi/access/logout" && let Some(w)=web_sys::window(){let _=w.location().set_href("/cdn-cgi/access/logout");}},Err(e)=>state.error.set(e)}
         })>"Sign out"</button></div></section>
     </div>}
 }

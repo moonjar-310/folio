@@ -8,10 +8,13 @@ folio-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
 pbkdf2 = "0.12"
 subtle = "2"
 uuid = { version = "1", features = ["v4", "js"] }
 url = "2"
+argon2 = { version = "0.5.3", default-features = false, features = ["alloc", "password-hash"] }
 [dev-dependencies]
 folio-storage-local = { path = "../storage-local" }
 tempfile = "3"

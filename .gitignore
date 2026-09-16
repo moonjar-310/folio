@@ -1,4 +1,5 @@
 .local/
+.playwright-mcp/
 node_modules/
 design/stitch/
 .codex/
@@ -6,6 +7,8 @@ design/stitch/
 .env
 .env.*
 !.env.example
+!.env.production.example
+wrangler.production.toml
 *.log
 dist/
 artifacts/

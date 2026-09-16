@@ -61,12 +61,11 @@ impl<S: Store> Application<S> {
     }
     pub(crate) async fn acquire_note(&mut self, id: &str) -> Result<String> {
         let owner = uid();
-        self.store.execute(statement("INSERT INTO note_locks(id,owner,expires_at) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at WHERE note_locks.expires_at<=?4",vec![json!(id),json!(owner),json!(self.now+120_000),json!(self.now)])).await?;
         let lock = self
             .store
             .query(statement(
-                "SELECT owner FROM note_locks WHERE id=?1",
-                vec![json!(id)],
+                "INSERT INTO note_locks(id,owner,expires_at) VALUES(?1,?2,?3) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,expires_at=excluded.expires_at WHERE note_locks.expires_at<=?4 RETURNING owner",
+                vec![json!(id), json!(owner), json!(self.now+120_000), json!(self.now)],
             ))
             .await?;
         if lock.first().is_none_or(|r| string(r, "owner") != owner) {

@@ -8,7 +8,9 @@ fn folder_rename_resumes_without_losing_canonical_content() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 1_800_000_000_000,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         for i in 0..5 {
             app.save_note(
@@ -170,7 +172,9 @@ fn complete_workspace_roundtrip() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 1_800_000_000_000,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         let anonymous = app
             .handle(Request {
@@ -199,11 +203,12 @@ fn complete_workspace_roundtrip() {
             .split(';')
             .next()
             .unwrap()
-            .strip_prefix("folio_session=")
+            .strip_prefix("folio_refresh=")
             .unwrap()
             .to_string();
         let base = Request {
             session,
+            access_token: setup.body["access_token"].as_str().unwrap().into(),
             csrf: setup.body["csrf"].as_str().unwrap().into(),
             ..Default::default()
         };
@@ -300,7 +305,9 @@ fn task_identity_pagination_and_locking() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 1_800_000_000_000,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         let saved = app
             .save_note(
@@ -425,7 +432,9 @@ fn production_setup_is_closed_and_expired_sessions_are_rejected() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 100_000,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "cloudflare",
+            auth_method: auth::AuthMethod::Password,
         };
         let request = Request {
             method: "POST".into(),
@@ -488,7 +497,9 @@ fn paths_survive_loss_of_indexes_and_all_auxiliary_note_metadata() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 1_800_000_000_000,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         app.save_note(
             "portable",
@@ -644,7 +655,9 @@ fn legacy_migration_preserves_original_and_retries_without_duplicate_files() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 10,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         let original = "<!-- folio-folder:\"Projects/Legacy\" -->\n# Old title\n\nKeep exactly.\n";
         app.store.write("legacy.md", original, None).await.unwrap();
@@ -728,7 +741,9 @@ fn duplicate_names_and_traversal_never_overwrite_files() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 10,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         app.save_note(
             "one",
@@ -862,7 +877,9 @@ fn interrupted_copy_delete_move_resumes_and_preserves_source_edits() {
             },
             now: 10,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         let saved = app
             .save_note(
@@ -933,7 +950,9 @@ fn rebuild_skips_bad_auxiliary_records_and_removes_deleted_search_results() {
             store: LocalStore::open(dir.path().into()).unwrap(),
             now: 10,
             setup_secret: None,
+            jwt_secret: "test-key-only-not-for-production!".repeat(3),
             runtime: "local",
+            auth_method: auth::AuthMethod::Password,
         };
         app.store
             .write(".folio/notes/bad.json", "not json", None)

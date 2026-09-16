@@ -40,6 +40,14 @@ impl LocalStore {
                 include_str!("../../../migrations/0004_folder_renames.sql"),
             ),
             (5, include_str!("../../../migrations/0005_vault_paths.sql")),
+            (
+                6,
+                include_str!("../../../migrations/0006_session_identity.sql"),
+            ),
+            (
+                7,
+                include_str!("../../../migrations/0007_refresh_tokens.sql"),
+            ),
         ] {
             let applied: bool = db
                 .query_row(

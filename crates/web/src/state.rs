@@ -12,8 +12,13 @@ pub struct AppState {
     pub authenticated: RwSignal<bool>,
     pub setup: RwSignal<bool>,
     pub csrf: RwSignal<String>,
+    pub access_token: RwSignal<String>,
+    pub token_deadline: RwSignal<f64>,
+    pub refresh_lock: StoredValue<std::sync::Arc<futures::lock::Mutex<()>>>,
     pub username: RwSignal<String>,
     pub runtime: RwSignal<String>,
+    pub auth_method: RwSignal<String>,
+    pub reauthenticate: RwSignal<bool>,
     pub notes: RwSignal<Vec<NoteSummary>>,
     pub notes_epoch: RwSignal<u64>,
     pub tasks: RwSignal<Vec<Task>>,
@@ -118,8 +123,13 @@ impl AppState {
             authenticated: RwSignal::new(false),
             setup: RwSignal::new(false),
             csrf: RwSignal::new(String::new()),
+            access_token: RwSignal::new(String::new()),
+            token_deadline: RwSignal::new(0.0),
+            refresh_lock: StoredValue::new(std::sync::Arc::new(futures::lock::Mutex::new(()))),
             username: RwSignal::new(String::new()),
             runtime: RwSignal::new(String::new()),
+            auth_method: RwSignal::new("unknown".into()),
+            reauthenticate: RwSignal::new(false),
             notes: RwSignal::new(vec![]),
             notes_epoch: RwSignal::new(0),
             tasks: RwSignal::new(vec![]),
@@ -165,27 +175,90 @@ impl AppState {
             task_group: RwSignal::new("Today".into()),
         }
     }
+    async fn refresh_tokens(self, previous: &str) -> Result<(), String> {
+        let lock = self.refresh_lock.get_value();
+        let _guard = lock.lock().await;
+        if self.access_token.get_untracked() != previous
+            && self.token_deadline.get_untracked() > js_sys::Date::now()
+        {
+            return Ok(());
+        }
+        let data = self.raw_api("POST", "/api/auth/refresh", json!({})).await?;
+        self.accept_auth(&data);
+        Ok(())
+    }
     pub async fn api(self, method: &str, path: &str, body: Value) -> Result<Value, String> {
+        if (!path.starts_with("/api/auth/") || path == "/api/auth/logout")
+            && self.token_deadline.get_untracked() <= js_sys::Date::now()
+        {
+            self.refresh_tokens(&self.access_token.get_untracked())
+                .await?;
+        }
+        self.raw_api(method, path, body).await
+    }
+    async fn raw_api(self, method: &str, path: &str, body: Value) -> Result<Value, String> {
+        self.send_api(method, path, body, false).await
+    }
+    async fn send_api(
+        self,
+        method: &str,
+        path: &str,
+        body: Value,
+        retried: bool,
+    ) -> Result<Value, String> {
+        let previous = self.access_token.get_untracked();
         let builder = match method {
             "POST" => Request::post(path),
             "PUT" => Request::put(path),
             "DELETE" => Request::delete(path),
             _ => Request::get(path),
         }
-        .header("x-csrf-token", &self.csrf.get_untracked());
+        .header("x-csrf-token", &self.csrf.get_untracked())
+        .header(
+            "authorization",
+            &format!("Bearer {}", self.access_token.get_untracked()),
+        );
         let response = if method == "GET" {
             builder.send().await
         } else {
             builder.json(&body).map_err(|e| e.to_string())?.send().await
         }
-        .map_err(|e| format!("Could not connect. {e}"))?;
+        .map_err(|e| {
+            if self.auth_method.get_untracked() == "cloudflare_access" {
+                self.reauthenticate.set(true);
+            }
+            format!("Could not connect. Your draft is preserved. {e}")
+        })?;
         let status = response.status();
+        if !response
+            .headers()
+            .get("content-type")
+            .unwrap_or_default()
+            .contains("application/json")
+        {
+            self.reauthenticate.set(true);
+            return Err("The server did not return app data. Reopen sign-in if your session expired; your draft is preserved.".into());
+        }
         let data = response
             .json::<Value>()
             .await
             .map_err(|_| "Could not read the server response".to_string())?;
+        if let Some(method) = data["method"].as_str() {
+            self.auth_method.set(method.into());
+        }
+        if status == 401
+            && !retried
+            && (!path.starts_with("/api/auth/") || path == "/api/auth/logout")
+        {
+            Box::pin(self.refresh_tokens(&previous)).await?;
+            return Box::pin(self.send_api(method, path, body, true)).await;
+        }
         if status == 401 {
-            self.authenticated.set(false);
+            if self.auth_method.get_untracked() == "cloudflare_access" {
+                self.reauthenticate.set(true);
+            } else {
+                self.authenticated.set(false);
+            }
         }
         if !response.ok() {
             return Err(data["message"].as_str().unwrap_or("Request failed").into());
@@ -193,8 +266,26 @@ impl AppState {
         Ok(data)
     }
     pub async fn start(self) {
-        match self.api("GET", "/api/auth/status", Value::Null).await {
-            Ok(data) => {
+        let refreshed = self.raw_api("POST", "/api/auth/refresh", json!({})).await;
+        if let Ok(ref auth) = refreshed {
+            self.accept_auth(auth);
+        }
+        let status = match refreshed {
+            Ok(auth) => Ok(auth),
+            Err(_) => self.api("GET", "/api/auth/status", Value::Null).await,
+        };
+        match status {
+            Ok(mut data) => {
+                if data["method"] == "cloudflare_access" && data["authenticated"] == false {
+                    match self.api("POST", "/api/auth/login", json!({})).await {
+                        Ok(auth) => data = auth,
+                        Err(e) => {
+                            self.error.set(e);
+                            self.ready.set(true);
+                            return;
+                        }
+                    }
+                }
                 self.setup
                     .set(data["setup_required"].as_bool().unwrap_or(false));
                 self.runtime
@@ -209,6 +300,14 @@ impl AppState {
         self.ready.set(true);
     }
     pub fn accept_auth(self, data: &Value) {
+        self.access_token
+            .set(data["access_token"].as_str().unwrap_or("").into());
+        self.token_deadline.set(
+            js_sys::Date::now() + data["expires_in"].as_f64().unwrap_or(0.0) * 1000.0 - 10_000.0,
+        );
+        self.auth_method
+            .set(data["method"].as_str().unwrap_or("password").into());
+        self.reauthenticate.set(false);
         self.authenticated
             .set(data["authenticated"].as_bool().unwrap_or(false));
         self.csrf.set(data["csrf"].as_str().unwrap_or("").into());
@@ -386,6 +485,23 @@ impl AppState {
                     "Browser draft backup is unavailable. Keep this tab open until saved.".into(),
                 ),
             }
+        }
+    }
+    /// Never leave an unsaved editor if persistent recovery cannot be confirmed.
+    pub fn reopen_sign_in(self) {
+        if self.dirty.get_untracked() {
+            let encoded = serde_json::to_string(&self.active.get_untracked()).unwrap_or_default();
+            let stored = storage().is_some_and(|s| {
+                s.set_item("folio-draft", &encoded).is_ok()
+                    && s.get_item("folio-draft").ok().flatten().as_deref() == Some(encoded.as_str())
+            });
+            if !stored {
+                self.error.set("Cannot preserve this draft in browser storage. Copy your text before reopening sign-in.".into());
+                return;
+            }
+        }
+        if let Some(w) = web_sys::window() {
+            let _ = w.location().reload();
         }
     }
     pub async fn save(self) -> bool {

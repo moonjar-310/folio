@@ -66,18 +66,20 @@ Checkbox indexing inserts a JSON array through SQLite/D1 `json_each`, rather tha
 
 ## Authentication and security
 
-Both runtimes require setup/login. There is no anonymous development override.
+Both runtimes require authentication. Local uses passwords; production Cloudflare uses Access. There is no anonymous development override.
 
-- One account; salted PBKDF2-HMAC-SHA256 with 600,000 iterations; no plaintext password storage.
-- Random session tokens; only their SHA-256 digests are stored. Sessions expire after seven days.
+- Local/password mode: one account; Argon2id v19 (19 MiB, t=2, p=1), encoded salt/parameters/hash. Legacy PBKDF2-SHA256 hashes upgrade only after a successful login.
+- Five-minute Access JWTs authorize requests without session-table reads. One-week Refresh Tokens are stored only as SHA-256 digests and rotated atomically on refresh.
 - HttpOnly, SameSite=Strict cookies; Secure on HTTPS.
 - CSRF tokens on authenticated mutations and same-origin checks when Origin is supplied.
 - JSON-only writes, bounded request bodies, validated IDs/folders/dates, parameterized SQL.
 - Ten login attempts per client per fifteen-minute window; successful login resets its counter.
-- Cloud first setup requires a configured `FOLIO_SETUP_TOKEN` of at least 24 characters. Existing accounts cannot be replaced through setup.
+- Password-mode Worker first setup requires a configured `FOLIO_SETUP_TOKEN` of at least 24 characters. Existing accounts cannot be replaced through setup.
 - Markdown raw HTML is excluded; preview HTML is sanitized, including unsafe link schemes.
 
-Password hashing is intentionally expensive and currently runs in WASM in the Worker. Production CPU sizing must be verified; see [deployment](DEPLOYMENT.md). Native mode binds loopback and permits the documented Trunk loopback proxy.
+The Worker JavaScript entrypoint verifies Cloudflare Access RS256 assertions with jose/Web Crypto before calling Rust. It checks issuer, AUD, expiry and the exact email allowlist, caches public keys, and overwrites an internal identity binding. The shared Rust application exchanges local Argon2id login or this verified identity for a five-minute Access JWT and a one-week Refresh Token. Business requests validate JWT signatures and CSRF without session DB reads; refresh atomically validates and rotates the stored token digest. Production binds app JWT subjects to the verified Access identity. See [authentication implementation](AUTH_OPTIONS.md).
+
+Password mode remains available for local Wrangler emulation. Production configuration selects Access without password fallback and without a Paid CPU override. Verify real CPU after deployment; see [deployment](DEPLOYMENT.md). Native mode binds loopback and permits the documented Trunk loopback proxy.
 
 ## Client state
 
@@ -89,14 +91,15 @@ Search debounces SQL requests and ignores stale results. Notes use 50-item pages
 
 ## API
 
-All data endpoints require a session; mutations also require `X-CSRF-Token`.
+All data endpoints require a Folio Access JWT; mutations also require `X-CSRF-Token`.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | /api/health | Runtime health without storage access |
 | GET | /api/auth/status | Setup/session status |
 | POST | /api/auth/setup | First account; cloud setup token header required |
-| POST | /api/auth/login | Create session |
+| POST | /api/auth/login | Issue Access/Refresh tokens |
+| POST | /api/auth/refresh | Atomically rotate Refresh Token and issue Access JWT |
 | POST | /api/auth/logout | Revoke session |
 | GET | /api/workspace | Initial bounded workspace data |
 | GET | /api/notes | `q`, `folder`, `exact`, `archived`, `offset`; items + next_offset |
@@ -114,3 +117,7 @@ All data endpoints require a session; mutations also require `X-CSRF-Token`.
 Markdown bodies are limited to 128 KiB. JSON bodies allow escaping expansion and are separately bounded. Search queries are at most 200 bytes; folder paths at most 240 bytes. Search and planner queries do not scan canonical storage. File exploration lists paths without loading Markdown bodies.
 
 Folder renames use a persistent operation record and a short shared mutation lease. Canonical folder changes run in bounded batches and can resume after failure. See [folder explorer](FOLDERS.md).
+
+## Cloud latency
+
+Workspace bootstrap reuses one canonical key listing for notes and folders. SQL leases use atomic INSERT/UPDATE RETURNING to avoid a separate owner read. Cloudflare responses expose aggregate `Server-Timing` for Access, application, D1 and R2 operations; timing logs exclude SQL, object names, tokens and user content. Optional production placement hints run the Worker near known storage; otherwise Smart Placement is used.

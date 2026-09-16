@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
+import { jwtVerify, decodeJwt } from 'jose';
 const base = process.argv[2] || 'http://127.0.0.1:8788';
 if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Smoke tests require a disposable loopback server.');
-let cookie = '', csrf = '';
+let cookie = '', csrf = '', access = '';
 const noteId='smoke-note-'+Date.now();
 async function call(method,path,body,expected=200,extra={}) {
- const response=await fetch(base+path,{method,signal:AbortSignal.timeout(30_000),headers:{'content-type':'application/json',cookie,'x-csrf-token':csrf,...extra},body:method==='GET'?undefined:JSON.stringify(body??{})});
+ const response=await fetch(base+path,{method,signal:AbortSignal.timeout(30_000),headers:{'content-type':'application/json',origin:base,authorization:'Bearer '+access,cookie,'x-csrf-token':csrf,...(process.env.FOLIO_TEST_ACCESS_TOKEN?{'Cf-Access-Jwt-Assertion':process.env.FOLIO_TEST_ACCESS_TOKEN}:{}),...extra},body:method==='GET'?undefined:JSON.stringify(body??{})});
  const data=await response.json();
  assert.equal(response.status,expected,method+' '+path+': '+JSON.stringify(data));
  if(response.headers.get('set-cookie'))cookie=response.headers.get('set-cookie').split(';')[0];
+ if(data?.access_token) { access=data.access_token; csrf=data.csrf; }
  return data;
 }
 await call('GET','/api/health');
@@ -16,6 +18,9 @@ const status=await call('GET','/api/auth/status');
 const auth=await call('POST',status.setup_required?'/api/auth/setup':'/api/auth/login',{username:'folio-test',password:'Folio-local-test-2026!'},200,{'x-setup-token':'folio-local-worker-verification-token'});
 csrf=auth.csrf;
 assert.ok(csrf);
+const claims=decodeJwt(access);
+assert.equal(claims.exp-claims.iat,300);
+if(process.env.FOLIO_TEST_JWT_SECRET) await jwtVerify(access,new TextEncoder().encode(process.env.FOLIO_TEST_JWT_SECRET),{algorithms:['HS256'],issuer:'folio',audience:'folio-api'});
 await call('POST','/api/tasks',{title:'blocked'},403,{'x-csrf-token':'incorrect'});
 await call('POST','/api/tasks',{title:'blocked'},403,{origin:'https://other.example'});
 await call('PUT','/api/notes/invalid.id',{markdown:'bad'},400);
@@ -79,6 +84,12 @@ const folders=await call('GET','/api/folders');
 assert.ok(folders.some(f=>f.path===root+' renamed/Child/Empty'));
 assert.ok(!folders.some(f=>f.path===root));
 await call('DELETE','/api/folders',{path:root+' renamed'});
+const oldCookie=cookie;
+await call('POST','/api/auth/refresh');
+assert.notEqual(cookie,oldCookie);
+await call('POST','/api/auth/refresh',{},401,{cookie:oldCookie});
 await call('POST','/api/auth/logout');
+access='';
+await call('POST','/api/auth/refresh',{},401);
 await call('GET','/api/notes',null,401);
-console.log('PASS: session auth, CSRF, origin, validation, notes, search, checkbox synchronization, conflict, nested folders, resumable rename, archive, delete, goals, tasks and logout.');
+console.log('PASS: five-minute JWT, rotating refresh, CSRF, origin, validation, notes, search, checkbox synchronization, conflict, nested folders, resumable rename, archive, delete, goals, tasks and logout.');

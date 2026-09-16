@@ -22,7 +22,7 @@ The Rust application now implements the product's Home, Todo, daily/weekly Plann
 - Markdown task indexing with source edits, standalone tasks and due date/time validation.
 - Goals create/edit/order/complete/archive.
 - Revision conflicts, R2 conditional writes, per-note leases and canonical-data preservation after SQL failure.
-- Five shared SQL migrations, applied automatically in native mode and through Wrangler in cloud mode.
+- Six shared SQL migrations, applied automatically in native mode and through Wrangler in cloud mode.
 
 ## Verification commands
 
@@ -44,7 +44,7 @@ Browser checks cover login, Korean Markdown editing, autosave, preview, source-t
 
 ## Operation boundary
 
-A successful build/emulator test is not a live deployment. Real Cloudflare resource configuration, remote migration, production CPU sizing and deployment are described in [DEPLOYMENT.md](DEPLOYMENT.md). Password hashing may exceed the Free CPU allowance. No cloud resources are provisioned automatically.
+A successful build/emulator test is not a live deployment. Real Cloudflare resource configuration, remote migration, production CPU sizing and deployment are described in [DEPLOYMENT.md](DEPLOYMENT.md). Production uses Cloudflare Access; password-mode emulation uses Argon2id. Production CPU remains to be measured. No cloud resources are provisioned automatically.
 
 The historical Node preview remains a separate design utility, not an alternate production backend.
 

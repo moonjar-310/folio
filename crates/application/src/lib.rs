@@ -6,12 +6,16 @@ use folio_core::{
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 pub mod auth;
+#[cfg(test)]
+mod auth_tests;
 mod folders;
 mod notes;
+mod password;
 mod planning;
 mod recovery;
 #[cfg(test)]
 mod tests;
+mod tokens;
 mod vault;
 pub type Result<T> = std::result::Result<T, Failure>;
 #[derive(Debug)]
@@ -82,12 +86,15 @@ pub struct Request {
     pub query: String,
     pub body: Vec<u8>,
     pub session: String,
+    pub access_token: String,
     pub csrf: String,
     pub origin: Option<String>,
     pub expected_origin: String,
     pub client: String,
     pub setup_token: String,
     pub secure: bool,
+    /// Set only by the trusted runtime authentication adapter, never request JSON.
+    pub identity: Option<auth::VerifiedIdentity>,
 }
 #[derive(Debug)]
 pub struct Response {
@@ -108,7 +115,9 @@ pub struct Application<S> {
     pub store: S,
     pub now: u64,
     pub setup_secret: Option<String>,
+    pub jwt_secret: String,
     pub runtime: &'static str,
+    pub auth_method: auth::AuthMethod,
 }
 impl<S: Store> Application<S> {
     pub async fn handle(&mut self, req: Request) -> Response {
@@ -154,7 +163,10 @@ impl<S: Store> Application<S> {
                 .collect();
         let body = match (req.method.as_str(), req.path.as_str()) {
             ("GET", "/api/workspace") => {
-                let notes = self.list_notes(&std::collections::HashMap::new()).await?;
+                let entries = self.all_entries().await?;
+                let notes = self
+                    .browse_notes_from_entries(&std::collections::HashMap::new(), &entries)
+                    .await?;
                 let mut task_query = std::collections::HashMap::new();
                 if let Some(today) = query.get("today") {
                     task_query.insert("group".into(), "today".into());
@@ -168,7 +180,7 @@ impl<S: Store> Application<S> {
                         vec![],
                     ))
                     .await?;
-                let folders = self.vault_folders().await?;
+                let folders = self.vault_folders_from_entries(&entries).await?;
                 json!({"notes":notes,"tasks":tasks,"goals":goals,"folders":folders})
             }
             ("GET", "/api/notes") => self.list_notes(&query).await?,

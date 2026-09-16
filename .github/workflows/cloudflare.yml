@@ -1,0 +1,71 @@
+name: Test and deploy Folio
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: folio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.91.1 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+          rustup default 1.91.1
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+            target
+          key: folio-${{ runner.os }}-rust-1.91.1-trunk-0.21.14-worker-0.8.5-${{ hashFiles('Cargo.lock') }}
+      - name: Install dependencies
+        run: |
+          npm ci
+          command -v trunk >/dev/null || cargo install trunk --version 0.21.14 --locked
+      - name: Check and test
+        run: |
+          cargo fmt --all --check
+          cargo test --workspace --locked
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo clippy -p folio-web -p folio-worker --target wasm32-unknown-unknown --locked -- -D warnings
+          npm run worker:config:test
+          npm run worker:smoke
+      - name: Deploy main
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          FOLIO_PRODUCTION_ENV: ${{ secrets.FOLIO_PRODUCTION_ENV }}
+          FOLIO_JWT_SECRET: ${{ secrets.FOLIO_JWT_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo 'Missing CLOUDFLARE_API_TOKEN repository secret'; exit 1; }
+          test -n "$FOLIO_PRODUCTION_ENV" || { echo 'Missing FOLIO_PRODUCTION_ENV repository secret'; exit 1; }
+          trap 'rm -f .env.production wrangler.production.toml' EXIT
+          printf '%s\n' "$FOLIO_PRODUCTION_ENV" > .env.production
+          npm run worker:preflight
+          npm run worker:migrate:remote
+          test -n "$FOLIO_JWT_SECRET" || { echo 'Missing FOLIO_JWT_SECRET repository secret'; exit 1; }
+          printf '%s' "$FOLIO_JWT_SECRET" | npx wrangler secret put FOLIO_JWT_SECRET --config wrangler.production.toml
+          npm run worker:deploy

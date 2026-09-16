@@ -9,6 +9,10 @@ pub fn Auth(state: AppState) -> impl IntoView {
     let password = RwSignal::new(String::new());
     let token = RwSignal::new(String::new());
     view! {<main class="auth-page"><div class="auth-sheet"><Brand/><span class="eyebrow">"Your personal planner & notebook"</span><h1>{move||if state.setup.get(){"A fresh page."}else{"Welcome back."}}</h1><p>{move||if state.setup.get(){"Create your private workspace to begin."}else{"A quiet place for your plans and thoughts."}}</p>
+        <Show when=move||state.auth_method.get()=="password" fallback=move||view!{
+            <p>"Continue through your configured sign-in to open this workspace."</p>
+            <button class="primary" on:click=move |_|state.reopen_sign_in()>"Reopen sign-in"</button>
+        }>
         <form on:submit=move|e|{
             e.prevent_default();if state.busy.get_untracked(){return;}state.busy.set(true);
             let path=if state.setup.get_untracked(){"/api/auth/setup"}else{"/api/auth/login"};
@@ -29,7 +33,7 @@ pub fn Auth(state: AppState) -> impl IntoView {
             <label>"Password"<input type="password" autocomplete=move||if state.setup.get(){"new-password"}else{"current-password"} required minlength=move||if state.setup.get(){12}else{1} maxlength="1024" prop:value=move||password.get() on:input=move|e|password.set(event_target_value(&e))/></label>
             <Show when=move||state.setup.get()&&state.runtime.get()=="cloudflare"><label>"Setup token"<input type="password" required autocomplete="off" prop:value=move||token.get() on:input=move|e|token.set(event_target_value(&e))/></label></Show>
             <button class="primary" disabled=move||state.busy.get()>{move||if state.busy.get(){"Opening your workspace…"}else if state.setup.get(){"Create workspace"}else{"Sign in"}}</button>
-        </form><Show when=move||!state.error.get().is_empty()><p role="alert" class="error-text">{move||state.error.get()}</p></Show><button class="text-button" on:click=move |_|state.toggle_theme()>"Change appearance"</button>
+        </form></Show><Show when=move||!state.error.get().is_empty()><p role="alert" class="error-text">{move||state.error.get()}</p></Show><button class="text-button" on:click=move |_|state.toggle_theme()>"Change appearance"</button>
     </div></main>}
 }
 #[component]

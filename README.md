@@ -10,7 +10,7 @@ A personal planner and Markdown notebook, built with **Rust, Leptos CSR and a sh
 - Notes: create, rename, move, archive, delete, paginated SQL search and path-based file lists.
 - Editor: Markdown preview, three-second autosave, save on blur/navigation and Ctrl/Cmd+S, browser draft recovery, visible failures and revision conflicts.
 - Nested Folders, editable/reorderable goals, Settings, persistent Light/Dark themes and mobile navigation.
-- Single-user setup/login/logout, hashed passwords, expiring server sessions, CSRF checks and rate-limited login.
+- Local Argon2id password authentication, Cloudflare Access owner login, five-minute Access JWTs, one-week rotating Refresh Tokens and CSRF checks.
 
 ## Runtime composition
 
@@ -29,7 +29,7 @@ Runtime selection is compiled into each entrypoint. Browser code and the shared 
 
 ## Run locally
 
-Requires Rust 1.91+, the `wasm32-unknown-unknown` target, Trunk 0.21.14+, and Node.js 22+.
+Requires Rust 1.91+, the `wasm32-unknown-unknown` target, Trunk 0.21.14+, and Node.js 22.9+.
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -45,7 +45,7 @@ Data defaults to `.local/folio-app/`. Set `FOLIO_DATA_DIR`, `FOLIO_ASSETS_DIR`, 
 
 ## Cloudflare
 
-See [deployment instructions](docs/DEPLOYMENT.md) for D1/R2 resources, migrations, the initial setup secret, and CPU requirements for password hashing.
+See [deployment instructions](docs/DEPLOYMENT.md) for D1/R2 resources, Cloudflare Access email login and migrations.
 
 ```sh
 # Configure .dev.vars as described in docs/DEPLOYMENT.md first.
@@ -54,6 +54,10 @@ npm run worker:dev
 ```
 
 The browser application is served through Static Assets; only `/api` and `/api/*` execute the Worker. Authentication is required in both runtimes. There is no development authentication bypass.
+
+Wrangler builds both the browser and Worker release bundles automatically. For a complete disposable D1/R2 check without deploying, run `npm run worker:smoke`.
+
+For production, copy `.env.production.example` to `.env.production` and fill in your Account ID, D1 UUID, hostname, Access team domain, application AUD and owner email. `npm run worker:preflight` generates the ignored production configuration and performs a deployment dry run. Actual resource provisioning, Access policies and deployment commands are documented in [deployment instructions](docs/DEPLOYMENT.md).
 
 ## Verify
 

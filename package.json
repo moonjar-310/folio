@@ -18,10 +18,19 @@
     "worker:migrate:local": "wrangler d1 migrations apply DB --local",
     "worker:check": "cargo check -p folio-worker --target wasm32-unknown-unknown --locked",
     "worker:package": "wrangler deploy --dry-run --outdir .local/worker-check",
+    "worker:configure": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs configure",
+    "worker:preflight": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs preflight",
+    "worker:migrate:remote": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs migrate",
+    "worker:deploy": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs deploy",
+    "worker:config:test": "node --test tests/cloudflare-config.test.mjs tests/access.test.mjs",
+    "worker:smoke": "npm run worker:package && node scripts/smoke-worker.mjs && node scripts/smoke-worker.mjs --access",
     "test:api": "node scripts/smoke-product.mjs",
     "preview:check": "node --check preview/server.mjs && node --check ui/components.mjs && node --check ui/pages.mjs && node --check public/app.js"
   },
   "devDependencies": {
     "wrangler": "4.131.2"
+  },
+  "dependencies": {
+    "jose": "6.2.12"
   }
 }

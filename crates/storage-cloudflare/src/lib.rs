@@ -5,16 +5,23 @@ use folio_core::{
 };
 use serde_json::Value;
 use worker::{Bucket, Conditional, D1Database, D1PreparedStatement, Env, wasm_bindgen::JsValue};
+mod timing;
+pub use timing::Timings;
 pub struct CloudflareStore {
     db: D1Database,
     bucket: Bucket,
+    timings: Timings,
 }
 impl CloudflareStore {
     pub fn new(env: &Env) -> Result<Self, String> {
         Ok(Self {
             db: env.d1("DB").map_err(|e| e.to_string())?,
             bucket: env.bucket("NOTES").map_err(|e| e.to_string())?,
+            timings: Timings::default(),
         })
+    }
+    pub fn timings(&self) -> Timings {
+        self.timings.clone()
     }
     fn prepare(&self, s: Statement) -> Result<D1PreparedStatement, String> {
         let values: Vec<JsValue> = s
@@ -42,6 +49,7 @@ fn key(path: &str) -> Result<String, String> {
 }
 impl Store for CloudflareStore {
     async fn list(&mut self, cursor: Option<&str>, limit: u32) -> Result<Listing, String> {
+        let _span = self.timings.start("r2_list");
         let mut builder = self
             .bucket
             .list()
@@ -65,6 +73,7 @@ impl Store for CloudflareStore {
     }
 
     async fn query(&mut self, s: Statement) -> Result<Vec<Value>, String> {
+        let _span = self.timings.start("d1_query");
         self.prepare(s)?
             .all()
             .await
@@ -73,6 +82,7 @@ impl Store for CloudflareStore {
             .map_err(|e| e.to_string())
     }
     async fn execute(&mut self, s: Statement) -> Result<(), String> {
+        let _span = self.timings.start("d1_execute");
         let result = self.prepare(s)?.run().await.map_err(|e| e.to_string())?;
         if result.success() {
             Ok(())
@@ -81,6 +91,7 @@ impl Store for CloudflareStore {
         }
     }
     async fn batch(&mut self, statements: Vec<Statement>) -> Result<(), String> {
+        let _span = self.timings.start("d1_batch");
         let statements = statements
             .into_iter()
             .map(|s| self.prepare(s))
@@ -93,6 +104,7 @@ impl Store for CloudflareStore {
         }
     }
     async fn read(&mut self, id: &str) -> Result<Option<Object>, String> {
+        let _span = self.timings.start("r2_read");
         let Some(object) = self
             .bucket
             .get(key(id)?)
@@ -117,6 +129,7 @@ impl Store for CloudflareStore {
         markdown: &str,
         version: Option<&str>,
     ) -> Result<(), String> {
+        let _span = self.timings.start("r2_write");
         let condition = match version {
             Some(v) => Conditional {
                 etag_matches: Some(v.into()),
@@ -137,6 +150,7 @@ impl Store for CloudflareStore {
             .ok_or("conflict".into())
     }
     async fn delete(&mut self, id: &str) -> Result<(), String> {
+        let _span = self.timings.start("r2_delete");
         self.bucket
             .delete(key(id)?)
             .await
