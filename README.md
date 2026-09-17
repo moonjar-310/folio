@@ -4,6 +4,41 @@
 
 Folio는 노트, 할 일, 일간·주간 계획, 목표를 하나의 작업 공간에서 관리하는 웹 애플리케이션입니다. Rust와 Leptos 기반으로 동작하며, 내 컴퓨터에서는 파일과 SQLite에, Cloudflare에서는 R2와 D1에 데이터를 저장합니다. 노트 본문은 일반 Markdown 파일로 보관합니다.
 
+## 화면 미리보기
+
+아래 화면은 Playwright로 실제 로컬 앱을 촬영했습니다. 가상 사용자 **Alex**의 샘플 노트·할 일·목표를 별도 저장소에 생성했으며, 개인 계정이나 운영 데이터는 사용하지 않았습니다.
+
+### Home
+
+목표, 오늘의 할 일, Quick Note와 최근 노트를 한 화면에서 확인합니다.
+
+![샘플 목표와 오늘의 할 일이 표시된 Folio 홈](assets/screenshots/home.png)
+
+### 주간 플래너
+
+날짜별 할 일과 시간을 살펴보고, 아직 일정을 정하지 않은 항목을 관리합니다.
+
+![샘플 일정이 표시된 Folio 주간 플래너](assets/screenshots/planner.png)
+
+### Markdown 노트
+
+폴더 트리와 노트 목록을 탐색하며 제목, 인용문, 체크박스, 표를 미리 봅니다.
+
+![샘플 디자인 노트의 Markdown 미리보기](assets/screenshots/notes.png)
+
+<details>
+<summary>다크 테마와 모바일 화면 보기</summary>
+
+**다크 테마**
+
+![Folio 노트 화면의 다크 테마](assets/screenshots/notes-dark.png)
+
+**모바일 Todo**
+
+<img src="assets/screenshots/mobile-todo.png" alt="모바일 화면에서 확인하는 샘플 할 일 목록" width="390">
+
+</details>
+
 ## 주요 기능
 
 | 화면 / 기능 | 설명 |
