@@ -1,6 +1,6 @@
 # Development and verification
 
-## Implemented on 2026-09-15
+## Current implementation — reviewed 2026-09-17
 
 The Rust application now implements the product's Home, Todo, daily/weekly Planner, Notes/editor, Folders, Goals, Settings and authentication flows.
 
@@ -17,23 +17,23 @@ The Rust application now implements the product's Home, Todo, daily/weekly Plann
 
 - Shared application services and explicit environment adapter.
 - Local implementation: filesystem/SQLite; Cloudflare implementation: R2/D1.
-- Single-user setup/login/logout, expiring sessions, CSRF and login throttling.
+- Local single-user Argon2id setup/login and production Cloudflare Access login; shared five-minute JWTs, one-week rotating refresh sessions, CSRF and password-login throttling.
 - Note CRUD, rename via Markdown title, canonical folder/file paths, nested folders, archive, SQL search/pagination.
 - Markdown task indexing with source edits, standalone tasks and due date/time validation.
-- Goals create/edit/order/complete/archive.
+- Goals create/edit/order/complete/archive; descriptions keep line breaks, card previews clamp to two lines, and a modal edits the full text.
 - Revision conflicts, R2 conditional writes, per-note leases and canonical-data preservation after SQL failure.
-- Six shared SQL migrations, applied automatically in native mode and through Wrangler in cloud mode.
+- Seven shared SQL migrations (0001–0007), applied automatically in native mode and through Wrangler in cloud mode.
 
 ## Verification commands
 
 ```sh
 cargo fmt --all --check
-cargo test --locked
-cargo test -p folio-web --locked
+cargo test --workspace --locked
 cargo clippy --all-targets --locked -- -D warnings
 cargo clippy -p folio-web -p folio-worker --target wasm32-unknown-unknown --locked -- -D warnings
 npm run app:build
-npm run worker:package
+npm run worker:config:test
+npm run worker:smoke
 ```
 
 The application tests cover unauthorized requests, setup, CSRF/origin failures, persistence, source-checkbox changes, stale revisions, failure preservation, dates, task identity after insertion/reordering, note pagination, date filtering, concurrent-save leases, cloud setup gating, expired sessions and login throttling. The editor test covers raw HTML, unsafe links and table rendering.

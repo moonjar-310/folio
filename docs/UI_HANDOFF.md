@@ -1,10 +1,10 @@
 # Folio UI implementation
 
-## Current Rust application — 2026-09-15
+## Current Rust application — reviewed 2026-09-17
 
 The Folio Penpot file was read through MCP, including Home, Todo, Planner, Notes and the common sidebar. The implementation follows the product specification when source patterns contain additional design-only content.
 
-- `crates/web/src/components.rs`: Sidebar, Folio emblem/SVG icons, TaskRow, TaskForm, GoalCard, NoteCard and section headings.
+- `crates/web/src/components.rs`: Sidebar, Folio emblem/SVG icons, TaskRow, TaskForm, GoalCard with modal editor, NoteCard and section headings.
 - `crates/web/src/folder_tree.rs`: nested folder/file explorer, disclosure state, context menus and create/rename dialogs. [Folder interaction contract](FOLDERS.md).
 - `crates/web/src/pages.rs`: Home, Todo, daily/weekly Planner and Settings.
 - `crates/web/src/editor.rs`: Notes browser, rename/move/archive/delete, Markdown editor and sanitized preview.
@@ -22,6 +22,6 @@ See [Folio design contracts](../design/folio/README.md), [design tokens and dire
 
 The earlier Node preview and editable Penpot assembly assets remain in `preview/`, `ui/`, `public/` and `design/penpot/`. Run the preview using `npm run preview:dev`. These are design references; the Rust Leptos application is the current implementation.
 
-The connected Penpot file contains `01 — Design System`, `02 — Screens`, and `03 — Archive`. The hidden previous-drafts group is a backup. Core components and the five current screen instances guide implementation; source-pattern variants are not separate frontend components.
+The connected Penpot file contains `01 — Design System`, `02 — Screens`, and `03 — Archive`. The hidden previous-drafts group is a backup. Core components and the original five screen instances, plus the folder and goal-editor follow-up boards, guide implementation; source-pattern variants are not separate frontend components.
 
 Private endpoint credentials and file identifiers remain outside public documentation.

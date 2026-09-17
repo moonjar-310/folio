@@ -15,15 +15,22 @@ Open http://127.0.0.1:8788. First visit creates the single-user account. SQLite 
 | FOLIO_DATA_DIR | .local/folio-app |
 | FOLIO_ASSETS_DIR | dist/web |
 | FOLIO_PORT | 8788 |
+| FOLIO_JWT_SECRET | Persisted `jwt-secret` in the data directory; optional override of at least 64 characters |
 
 Use a separate data directory for verification. The built-in server is intentionally loopback-only. Keep your vault directory private to your OS account.
 
 ## Cloudflare local emulation
 
 1. Install the toolchain listed in README and run `npm ci`. Wrangler builds both the frontend and Worker automatically.
-2. Create an ignored `.dev.vars` file containing `FOLIO_SETUP_TOKEN=<random value of at least 24 characters>`.
+2. Create an ignored `.dev.vars` file with **both** `FOLIO_SETUP_TOKEN` (at least 24 random characters) and `FOLIO_JWT_SECRET` (at least 64 characters; generate 32 random bytes as hex). The Worker requires the signing key even before account setup.
 3. Run `npm run worker:migrate:local`, then `npm run worker:dev`.
 4. Open the local Wrangler URL. On first setup, enter that token with your username/password.
+
+For a new checkout without `.dev.vars`, this command generates both values without printing them. It refuses to overwrite an existing file; if the file exists, preserve its values and add only any missing setting. Read the setup token locally when the first-run form asks for it.
+
+```sh
+node -e "const fs = require('node:fs'); const crypto = require('node:crypto'); fs.writeFileSync('.dev.vars', 'FOLIO_SETUP_TOKEN=' + crypto.randomBytes(24).toString('hex') + '\nFOLIO_JWT_SECRET=' + crypto.randomBytes(32).toString('hex') + '\n', {flag: 'wx', mode: 0o600});"
+```
 
 Native and Wrangler modes use separate data stores. The adapter selects filesystem/SQLite for the native binary and R2/D1 for the Worker binary; neither runtime depends on the other being available.
 
@@ -37,7 +44,7 @@ Native and Wrangler modes use separate data stores. The adapter selects filesyst
 | --- | --- |
 | CLI 인증 | `npx wrangler login`, `npx wrangler whoami` 성공 확인 |
 | 계정/주소 | Account ID, 실제 서비스 호스트명, 같은 계정의 활성 Cloudflare DNS zone |
-| D1 | `folio` DB와 UUID, 6개 마이그레이션 적용 |
+| D1 | `folio` DB와 UUID, `migrations/`의 7개 마이그레이션(0001–0007) 적용 |
 | R2 | R2 구독 활성화와 비공개 `folio-notes` 버킷 |
 | Access | Zero Trust 팀 도메인, Access application AUD, 허용할 이메일 목록 |
 | 정책 | Folio 호스트 전체를 Access로 보호하고 지정한 이메일만 Allow |
@@ -88,6 +95,8 @@ npm run worker:preflight
 
 ```powershell
 npm run worker:migrate:remote
+# 최초 수동 배포 또는 서명키 교체 시: 생성된 운영 설정으로 시크릿 등록
+npx wrangler secret put FOLIO_JWT_SECRET --config wrangler.production.toml
 npm run worker:deploy
 ```
 
@@ -122,7 +131,7 @@ cargo test --workspace --locked
 
 ### Path storage upgrade
 
-Back up the full data directory/bucket and database first. Apply migration `0005_vault_paths.sql` before running the new Worker. Native mode applies it automatically.
+Back up the full data directory/bucket and database first. Apply all pending migrations before running the current Worker, including `0005_vault_paths.sql` for path storage and `0007_refresh_tokens.sql` for current authentication. Native mode applies them automatically.
 
 With the local server stopped:
 
@@ -149,8 +158,9 @@ Repository secrets:
 
 - `FOLIO_PRODUCTION_ENV`: contents of the ignored `.env.production` file. Includes account, database, domain, Access settings and optional placement hint.
 - `CLOUDFLARE_API_TOKEN`: dedicated deployment API token; do not copy Wrangler's temporary OAuth or refresh token into CI.
+- `FOLIO_JWT_SECRET`: token signing key, at least 64 characters; see [signing-key setup](#folio-token-signing-key).
 
-The deployment step creates its ignored config, validates a production dry run, applies pending D1 migrations and deploys. It removes generated configuration on exit. It never changes Access policies or creates a public R2 bucket. Account permission scope must be reviewed when issuing the deployment token.
+The deployment step creates its ignored config, validates a production dry run, applies pending D1 migrations, installs the JWT signing secret and deploys. It removes generated configuration on exit. It never changes Access policies or creates a public R2 bucket. Account permission scope must be reviewed when issuing the deployment token.
 
 `FOLIO_PLACEMENT_REGION=aws:ap-east-1` places execution near Hong Kong for the currently observed HKG D1 primary. Omit the optional value to use Smart Placement. Review measurements before changing the hint when moving storage. Browser static assets remain served at the edge.
 

@@ -27,11 +27,11 @@ The tree queries `GET /api/notes?folder=...&exact=true` only for visible, expand
 
 A rename moves each affected Markdown file to its new path using revision-checked, journaled copies. Markdown bodies and task identities are preserved. An internal SQL lease serializes folder mutations and note writes so a save cannot add notes to a subtree midway through a rename.
 
-Migration `0004_folder_renames.sql` records a pending rename. Each PUT processes up to two notes and returns `done`; the UI sends subsequent batches until complete. Writes affecting that hierarchy are rejected while it is pending. The final SQL transaction maps empty descendant folders, removes old folder rows, and clears the pending operation.
+The current pending operation is persisted in `.folio/folder-rename.json`; the SQL table from `0004_folder_renames.sql` remains a legacy fallback. Each PUT moves up to two notes and returns `done`; the UI sends subsequent batches until complete. Writes affecting that hierarchy are rejected while it is pending. After moving notes, the operation recreates destination folder markers, removes source markers, updates folder SQL rows in a batch and removes the canonical journal. Marker cleanup is not limited to two entries per request.
 
 If a request fails or the browser closes, **Resume folder rename…** appears in the Folders section after reopening. Retrying uses canonical content already written and repairs its index. This is a resumable operation across two stores, not a cross-store transaction or an all-or-nothing rollback.
 
-Local SQLite migrates automatically on server startup. Existing Cloudflare deployments must apply migration 0004 before using the new API.
+Local SQLite migrates automatically on server startup. Cloudflare deployments must apply all pending migrations from `migrations/` (currently 0001–0007), including the path-storage and refresh-token updates. See [deployment](DEPLOYMENT.md).
 
 ## Verification
 

@@ -84,7 +84,7 @@ Flutter는 화면과 데이터 접근을 분리하고, HTTP 통신·토큰 갱�
 
 데스크톱 패키징과 Android 직접 설치는 각각 [Tauri 배포 안내](https://v2.tauri.app/distribute/)와 [Flutter Android 배포 안내](https://docs.flutter.dev/deployment/android)를 기준으로 준비한다. 직접 설치는 스토어 심사를 줄이지만 플랫폼의 서명·설치 보안 요구를 없애지는 않는다.
 
-2026-09-16에 확인한 스토어·개발 배포 조건은 다음과 같다. 실제 출시 시점에 다시 확인한다.
+2026-09-17에 공식 문서로 재확인한 스토어·개발 배포 조건은 다음과 같다. 실제 출시 시점에 다시 확인한다.
 
 - **Google Play:** 2023년 11월 13일 이후 생성한 개인 개발자 계정은 프로덕션 접근 신청 전에 최소 12명의 테스터가 연속 14일 참여하는 비공개 테스트를 요구한다. 조건 충족 후 프로덕션 접근을 신청하며, 자동 출시 승인을 의미하지 않는다. 본인 기기에 APK를 직접 설치하는 데 필요한 테스터 수 조건은 아니다. [Google 공식 요건](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en-GB)
 - **Apple App Store:** TestFlight는 선택 사항이다. Google Play와 같은 사전 테스터 모집 조건으로 혼동하지 않는다. 공개 출시는 별도의 App Review를 거친다. [Apple TestFlight 설명](https://developer.apple.com/help/glossary/testflight-beta-testing/)

@@ -19,7 +19,7 @@ Explicitly out of scope unless requested:
 - collaboration
 - comments
 - AI features
-- OAuth / SSO
+- additional OAuth / SSO providers beyond the implemented Cloudflare Access login
 - external calendar integrations
 - analytics
 - streaks
@@ -42,24 +42,26 @@ Keep UI-only changes local; avoid duplicate reads, polling and per-keystroke sav
 
 ## Storage Rules
 
-R2 Markdown is canonical.
+Markdown at its vault path is canonical in both local filesystem and R2 storage. `.folio/` also contains primary standalone tasks/goals and recovery journals.
 
-D1 is derived/query data.
+D1/SQLite contains derived note/search/planner indexes **and SQL-owned authentication, refresh sessions, rate limits and mutation leases**. Do not treat the entire database as disposable. See [storage and recovery](ARCHITECTURE.md#canonical-storage).
 
-Do not fetch all R2 documents for:
+Do not scan Markdown bodies for routine:
 - note list
 - search
 - todo
 - recently edited
 - home
 
+Folder/file browsing lists canonical storage keys with cached SQL metadata so files remain discoverable after index loss. Search and planner use bounded SQL queries.
+
 ## Portability Rules
 
 Keep Cloudflare-specific APIs at infrastructure boundaries.
 
-Preserve future replacements:
-- R2 → filesystem
-- D1 → SQLite
+Preserve the already implemented runtime adapters:
+- Cloudflare: R2 + D1
+- Native: filesystem + SQLite
 
 ## UI Rules
 

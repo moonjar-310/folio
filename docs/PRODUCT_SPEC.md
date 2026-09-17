@@ -83,7 +83,7 @@ Fields:
 - id
 - title
 - description?
-- order
+- position (display order)
 - status
 - created_at
 - updated_at
@@ -258,7 +258,7 @@ Home should link directly to today's Daily Note.
 - Light and Dark themes across all screens.
 - Follow system appearance initially; persist an explicit local override.
 - Toggle from sidebar or Settings without losing editor state.
-- User-facing folder navigation is named Folders. Existing internal `notebook` fields may remain during the UI phase to avoid unnecessary data migration.
+- User-facing folder navigation is named Folders. The current Rust API uses `folder` and canonical file paths; historical Node preview contracts are separate.
 
 Desktop:
 - persistent sidebar

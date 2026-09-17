@@ -91,16 +91,16 @@ Search debounces SQL requests and ignores stale results. Notes use 50-item pages
 
 ## API
 
-All data endpoints require a Folio Access JWT; mutations also require `X-CSRF-Token`.
+Business data endpoints require a Folio Access JWT; their mutations and logout also require `X-CSRF-Token`. Health and auth status do not require a Folio JWT. Password setup/login issue tokens; refresh uses the refresh cookie and requires an explicit same-origin `Origin`, without a current JWT or CSRF header. Production Cloudflare Access protection still applies to the entire hostname, including these routes.
 
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | /api/health | Runtime health without storage access |
 | GET | /api/auth/status | Setup/session status |
-| POST | /api/auth/setup | First account; cloud setup token header required |
+| POST | /api/auth/setup | First password account; emulated Worker requires `X-Setup-Token`; unavailable in Access mode |
 | POST | /api/auth/login | Issue Access/Refresh tokens |
 | POST | /api/auth/refresh | Atomically rotate Refresh Token and issue Access JWT |
-| POST | /api/auth/logout | Revoke session |
+| POST | /api/auth/logout | Revoke refresh session and clear its cookie; issued JWTs expire within five minutes |
 | GET | /api/workspace | Initial bounded workspace data |
 | GET | /api/notes | `q`, `folder`, `exact`, `archived`, `offset`; items + next_offset |
 | GET / PUT / DELETE | /api/notes/{id} | Stable ID or encoded path handle; open / save / revision-checked delete |
@@ -110,9 +110,9 @@ All data endpoints require a Folio Access JWT; mutations also require `X-CSRF-To
 | GET | /api/folders/rename | Pending hierarchy rename for recovery |
 | GET | /api/tasks | `group` + `today`, or `from`/`to`, and `offset` |
 | POST | /api/tasks | Create standalone task |
-| PUT / DELETE | /api/tasks/{id} | Edit / delete standalone task |
+| PUT / DELETE | /api/tasks/{id} | Edit standalone or Markdown-source task / delete standalone task only |
 | GET / POST | /api/goals | List / create |
-| PUT | /api/goals/{id} | Edit title/description/order/status |
+| PUT | /api/goals/{id} | Edit title/description/position/status |
 
 Markdown bodies are limited to 128 KiB. JSON bodies allow escaping expansion and are separately bounded. Search queries are at most 200 bytes; folder paths at most 240 bytes. Search and planner queries do not scan canonical storage. File exploration lists paths without loading Markdown bodies.
 

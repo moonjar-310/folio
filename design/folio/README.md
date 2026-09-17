@@ -18,7 +18,7 @@ Penpot은 Stitch의 시각적 원본을 유지하면서 웹에서 재사용할 �
 
 - 제목의 길이, 설명의 줄 수, 날짜, 항목 수는 props/children 차이다. 이를 이유로 GoalCard2, TuesdayColumn처럼 별도 컴포넌트를 만들지 않는다.
 - PlannerDay는 `events[]`를 반복해서 PlannerEvent로 렌더링한다. 일곱 요일은 동일한 컴포넌트이며 today/weekend는 상태다.
-- 기본·완료·우선순위 작업은 TaskRow의 `status`다. 시각 상태는 데이터 상태와 별개이며 hover/focus/disabled를 페이지 이름으로 분리하지 않는다.
+- 기본·완료 작업은 같은 TaskRow의 데이터 상태로 표현한다. 디자인 계약의 우선순위 variant는 참고용이며 현재 제품/API에는 우선순위 필드가 없다. hover/focus/disabled를 페이지 이름으로 분리하지 않는다.
 - 테마는 앱 루트의 CSS 변수 범위에서 전환한다. LightGoalCard/DarkGoalCard 같은 별도 UI 컴포넌트는 만들지 않는다.
 - 아이콘과 텍스트를 한 문자열로 넣지 않는다. 아이콘은 슬롯/prop, 본문은 실제 텍스트 요소로 전달한다.
 
@@ -69,7 +69,7 @@ Penpot MCP로 기존 GoalCard와 Home의 Light/Dark 시안을 수정하고,
 - Cancel/닫기/Escape: 저장 없이 닫고 호출 버튼으로 포커스 복귀. 다시 열면 저장된 내용을 표시.
 - Save: 해당 목표만 저장 중 상태로 전환. 실패하면 모달에 오류와 입력 내용을 유지하고 재시도 허용.
 
-[Penpot 편집 모달 시안](../../docs/UI_HANDOFF.md)
+편집 모달 시안은 연결된 비공개 Penpot 파일의 `02 — Screens`에서 확인한다. 공개 문서에는 개인 호스트 및 파일 식별자를 포함하지 않는다.
 
 검수: 브라우저 WASM 빌드, 로컬 API 응답을 사용하는 실제 웹에서 여러 줄 저장·재열기,
 실패 후 입력 보존·취소, 데스크톱 및 390 px 모바일 배치 확인.

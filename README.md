@@ -105,12 +105,13 @@ npm run app:dev
 | `FOLIO_DATA_DIR` | `.local/folio-app` | 데이터 저장 디렉터리 |
 | `FOLIO_ASSETS_DIR` | `dist/web` | 빌드한 프런트엔드 경로 |
 | `FOLIO_PORT` | `8788` | 로컬 API 및 정적 파일 서버 포트 |
+| `FOLIO_JWT_SECRET` | 데이터 디렉터리의 `jwt-secret` 자동 생성·재사용 | 선택적 JWT 서명키 재정의; 64자 이상 |
 
 ## Cloudflare 실행과 배포
 
 ### 로컬 에뮬레이션
 
-루트에 `.dev.vars`를 만들고 24자 이상의 임의 값으로 `FOLIO_SETUP_TOKEN`을 설정합니다. 첫 계정 생성 시 이 토큰을 입력합니다.
+루트의 `.dev.vars`에 `FOLIO_SETUP_TOKEN`(24자 이상의 임의 값)과 `FOLIO_JWT_SECRET`(32바이트 난수를 64자리 hex로 인코딩한 서명키)을 모두 설정합니다. 첫 계정 생성 시 setup 토큰을 입력합니다. 파일 생성 방법은 [로컬 에뮬레이션 안내](docs/DEPLOYMENT.md#cloudflare-local-emulation)를 참고하세요.
 
 ```sh
 npm run worker:migrate:local

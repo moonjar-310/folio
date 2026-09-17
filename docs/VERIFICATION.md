@@ -1,6 +1,22 @@
 # Verification results
 
-Date: 2026-09-15. All data used for HTTP/browser verification was synthetic and isolated from the default personal vault.
+## Current review — 2026-09-17
+
+- `cargo test --workspace --locked`: 19 tests passed (application 11, core 3, browser 5), plus workspace targets and doc tests.
+- `npm run worker:config:test`: all 9 authentication/configuration tests passed.
+- All 15 Markdown documents were read against source/configuration; 66 local links, image references and heading anchors resolved, and every documented npm script exists. The 18 public external documentation links opened successfully; the private design URL was replaced with its board location.
+- The documented `.dev.vars` generation command passed in an isolated temporary directory: expected key lengths, no secret output and refusal to overwrite an existing file.
+- The repository contains 7 migrations (0001–0007). Current auth uses Argon2id locally and Cloudflare Access in production, with Folio JWT/refresh tokens in both runtimes.
+- README screenshots were captured with Playwright on 2026-09-17 using a separate native demo store and synthetic data, after a successful release frontend build. These images cover Home, Planner, note preview, dark appearance and mobile Todo.
+- This review does not re-run live production login, deployment, CPU measurements or the complete disposable Worker smoke workflows. The historical production deployment and its limits are recorded below.
+
+The sections below are dated implementation checkpoints, not one current test report. Their counts, auth models, Paid-plan assumptions and deployment status apply only to that checkpoint. Follow [current operation instructions](DEPLOYMENT.md) and [current authentication](AUTH_OPTIONS.md) when running the app.
+
+`scripts/smoke-storage.mjs` is a historical pre-JWT recovery helper: it sends the old cookie/CSRF contract without a Bearer JWT and must be updated before reuse. Current recovery behavior is covered by Rust tests; use `scripts/smoke-product.mjs` and `npm run worker:smoke` for the maintained authenticated HTTP workflows.
+
+## Initial verification — 2026-09-15
+
+All data used for HTTP/browser verification below was synthetic and isolated from the default personal vault.
 
 ## Automated checks
 
@@ -65,7 +81,7 @@ Additional checks passed after fixing cross-folder file selection and pending-re
 
 ## Path storage follow-up
 
-The latest workspace has 15 passing tests (application 9, core 3, browser 3). Added tests cover canonical plain Markdown at real paths, lost note/folder/task/goal index rows, missing optional note identity metadata, arbitrary external Markdown files, empty directories, legacy migration and duplicate-title suffixes, filename case collisions, traversal/Windows path rejection, interrupted copy/delete moves, source edits during a pending move, malformed auxiliary records, and stale search-result cleanup.
+At this path-storage checkpoint, the workspace had 15 passing tests (application 9, core 3, browser 3). Added tests cover canonical plain Markdown at real paths, lost note/folder/task/goal index rows, missing optional note identity metadata, arbitrary external Markdown files, empty directories, legacy migration and duplicate-title suffixes, filename case collisions, traversal/Windows path rejection, interrupted copy/delete moves, source edits during a pending move, malformed auxiliary records, and stale search-result cleanup.
 
 Both `scripts/smoke-product.mjs` and `scripts/smoke-storage.mjs` passed against fresh native `.local/path-native` (8790) and local Wrangler `.local/path-worker` (8791). The storage workflow explicitly deleted all notes/folders/tasks/goals SQL rows, retained authentication, and then verified raw discovery/open/edit before rebuilding; search, Markdown checkboxes, standalone tasks and goals were restored. Folder rename and empty descendant preservation then passed. The resulting R2 object was downloaded with Wrangler and compared byte-for-byte with the native Markdown; they matched and contained no folder comment.
 
