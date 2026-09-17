@@ -77,7 +77,7 @@ Folio는 노트, 할 일, 일간·주간 계획, 목표를 하나의 작업 공�
 - Node.js 22.9 이상과 npm — CI에서는 Node.js 24 사용
 
 ```sh
-git clone https://github.com/neongseoman/folio.git
+git clone https://github.com/moonjar-310/folio.git
 cd folio
 rustup target add wasm32-unknown-unknown
 cargo install --locked trunk --version 0.21.14
