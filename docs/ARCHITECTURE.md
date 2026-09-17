@@ -85,7 +85,7 @@ Password mode remains available for local Wrangler emulation. Production configu
 
 Notes debounce saves by approximately three seconds; blur, note/page navigation and Ctrl/Cmd+S flush. A failed save blocks destructive navigation and preserves both the editor and a local browser draft. The recovered draft retains its base revision. Saving as a new note is available for conflict recovery.
 
-In-flight saves temporarily disable editor mutation. Successful saves update list metadata from the response. No polling or per-keystroke API saves. Quick Note preserves its capture text while navigating and in browser storage until explicitly saved.
+In-flight saves temporarily disable editor mutation. Successful saves update list metadata from the response. No polling or per-keystroke API saves. Quick Note preserves its capture text while navigating and in browser storage. Explicit sign-out asks to save or discard a pending Quick Note, with Cancel available. Sign-out verifies browser draft removal; save or cleanup failures keep the user signed in with their text preserved.
 
 Search debounces SQL requests and ignores stale results. Notes use 50-item pages; tasks use 200-item pages with group/date filtering. Theme state applies before paint, follows system initially, and persists an explicit override.
 

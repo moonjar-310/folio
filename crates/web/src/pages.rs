@@ -1,5 +1,5 @@
 use crate::{components::*, state::*};
-use folio_core::{NoteSummary, Task};
+use folio_core::Task;
 use leptos::{prelude::*, task::spawn_local};
 use serde_json::{Value, json};
 #[component]
@@ -41,14 +41,7 @@ pub fn Home(state: AppState) -> impl IntoView {
         </section>
         <section class="agenda"><SectionHeading title="Today's intentions" icon="planner"><span class="meta">{move||format!("{} open",tasks.get().iter().filter(|t|!t.completed).count())}</span></SectionHeading><TaskList state items=tasks/><TaskForm state initial_date=today()/><Show when=move||state.next_tasks.get().is_some()><button class="load-more" on:click=move |_|spawn_local(async move{state.load_tasks(state.tasks_for_page(),true).await;})>"More intentions"</button></Show></section>
         <section class="quick-note"><SectionHeading title="Quick Note" icon="notes"><span class="meta">"A thought worth keeping"</span></SectionHeading>
-            <form on:submit=move|e|{e.prevent_default();let text=quick.get_untracked();if text.trim().is_empty()||state.quick_saving.get_untracked(){return;}state.quick_saving.set(true);spawn_local(async move{
-                let id=uuid::Uuid::new_v4().to_string();
-                match state.api("PUT",&format!("/api/notes/{id}"),json!({"markdown":text,"folder":"Personal"})).await{
-                    Ok(v)=>{state.merge_note_tasks(&id,&v);if let Ok(summary)=serde_json::from_value::<NoteSummary>(v){state.merge_tree_note(&summary);state.notes.update(|n|n.insert(0,summary));}quick.set(String::new());if let Some(s)=storage(){let _=s.remove_item("folio-quick-draft");}state.message.set("Quick note saved".into());state.error.set(String::new());},
-                    Err(e)=>state.error.set(e),
-                }
-                state.quick_saving.set(false);
-            });}>
+            <form on:submit=move|e|{e.prevent_default();spawn_local(async move{state.save_quick_note().await;});}>
                 <textarea id="quick-note" disabled=move||state.quick_saving.get() aria-label="Quick note" placeholder="Write a fleeting thought or capture an idea…" prop:value=move||quick.get() on:input=move|e|{let value=event_target_value(&e);if let Some(s)=storage(){let _=s.set_item("folio-quick-draft",&value);}quick.set(value);}></textarea>
                 <div class="quick-footer"><span class="meta">"Saved as a new note"</span><button class="primary" disabled=move||state.quick_saving.get()||quick.get().trim().is_empty()>"Save note"<Icon name="arrow"/></button></div>
             </form>
@@ -146,6 +139,21 @@ fn PlannerDay(state: AppState, day: String) -> impl IntoView {
 }
 #[component]
 pub fn Settings(state: AppState) -> impl IntoView {
+    let dialog = NodeRef::<leptos::html::Dialog>::new();
+    let signing_out = RwSignal::new(false);
+    let finish = Callback::new(move |save_quick: bool| {
+        if signing_out.get_untracked() || state.quick_saving.get_untracked() {
+            return;
+        }
+        signing_out.set(true);
+        spawn_local(async move {
+            let signed_out = state.sign_out(save_quick).await;
+            signing_out.try_set(false);
+            if signed_out && let Some(dialog) = dialog.get_untracked() {
+                dialog.close();
+            }
+        });
+    });
     view! {<div class="reading-page settings"><div class="page-intro"><span class="eyebrow">"Make yourself at home"</span><h1>"Your workspace"</h1><p>"A few quiet preferences for your Folio."</p></div>
         <section><SectionHeading title="Appearance" icon="home"><span></span></SectionHeading><div class="setting-row"><div><h3>"Light & dark"</h3><p>"Your choice stays with this browser."</p></div><button aria-pressed=move||state.dark.get() on:click=move |_|state.toggle_theme()>{move||if state.dark.get(){"Switch to light"}else{"Switch to dark"}}</button></div></section>
         <section><SectionHeading title="Folders" icon="folder"><span></span></SectionHeading><p class="muted">"Create folders from the sidebar. Empty folders can be removed here."</p>
@@ -158,9 +166,20 @@ pub fn Settings(state: AppState) -> impl IntoView {
         <div class="setting-row"><span>"Move files from the older ID-based storage"</span><button disabled=move||state.maintaining.get() on:click=move |_|spawn_local(state.maintain_storage(true))>"Migrate existing files"</button></div>
         </section>
         <section><SectionHeading title="Keyboard shortcuts" icon="notes"><span></span></SectionHeading><dl class="shortcuts"><dt>"Search"</dt><dd><kbd>"Ctrl / ⌘ K"</kbd></dd><dt>"New note"</dt><dd><kbd>"Ctrl / ⌘ N"</kbd></dd><dt>"Save"</dt><dd><kbd>"Ctrl / ⌘ S"</kbd></dd><dt>"Quick Note"</dt><dd><kbd>"Ctrl / ⌘ Shift N"</kbd></dd></dl></section>
-        <section><SectionHeading title="Account" icon="settings"><span></span></SectionHeading><div class="setting-row"><span>{move||state.username.get()}</span><button on:click=move |_|spawn_local(async move{
-            if !state.save().await{return;}
-            match state.api("POST","/api/auth/logout",json!({})).await{Ok(data)=>{state.authenticated.set(false);state.csrf.set(String::new());state.access_token.set(String::new());state.token_deadline.set(0.0);state.notes.set(vec![]);state.tasks.set(vec![]);state.goals.set(vec![]);state.active.set(new_note("Personal".into()));if data["logout_url"]=="/cdn-cgi/access/logout" && let Some(w)=web_sys::window(){let _=w.location().set_href("/cdn-cgi/access/logout");}},Err(e)=>state.error.set(e)}
-        })>"Sign out"</button></div></section>
+        <section><SectionHeading title="Account" icon="settings"><span></span></SectionHeading><div class="setting-row"><span>{move||state.username.get()}</span><button disabled=move||signing_out.get()||state.quick_saving.get() on:click=move |_|{
+            if !state.quick.get_untracked().is_empty() {
+                if let Some(dialog)=dialog.get_untracked(){let _=dialog.show_modal();}
+            } else {finish.run(false);}
+        }>"Sign out"</button></div></section>
+        <dialog node_ref=dialog class="folder-dialog" aria-labelledby="logout-title" on:cancel=move|e: web_sys::Event|{if signing_out.get_untracked(){e.prevent_default();}}>
+            <h2 id="logout-title">"Save your Quick Note?"</h2>
+            <p class="meta">"Save this draft as a note, or discard it before signing out. Cancel to keep writing."</p>
+            <Show when=move||!state.error.get().is_empty()><p role="alert" class="error-text">{move||state.error.get()}</p></Show>
+            <div class="folder-dialog-actions" style="flex-wrap:wrap">
+                <button disabled=move||signing_out.get() on:click=move |_|{if let Some(dialog)=dialog.get_untracked(){dialog.close();}}>"Cancel"</button>
+                <button class="danger" disabled=move||signing_out.get() on:click=move |_|finish.run(false)>"Discard and sign out"</button>
+                <button class="primary" disabled=move||signing_out.get()||state.quick.get().trim().is_empty() on:click=move |_|finish.run(true)>"Save and sign out"</button>
+            </div>
+        </dialog>
     </div>}
 }

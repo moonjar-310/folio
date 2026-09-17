@@ -1,5 +1,12 @@
 # Verification results
 
+## Privacy remediation — 2026-09-17
+
+- Production deploy registers masks for individual configuration values and allowed emails before calling Wrangler, and suppresses informational binding summaries. Twelve Node authentication/configuration/masking tests passed; actionlint accepted the workflow.
+- Explicit sign-out offers Save / Discard / Cancel for Quick Note drafts. Playwright checks on an isolated synthetic native store passed cancellation, saving and readback after login, discard cleanup, logout API failure recovery, browser-storage cleanup failure, and retry without duplicate notes. The 390 px dialog was visually checked.
+- Web unit tests (5), formatting, WASM compilation, release frontend build and WASM Clippy passed. Default personal data and remote application data were not used for these checks.
+- Previously exposed public deployment logs were deleted and their download endpoints confirmed unavailable. Git history cleanup is handled separately from ordinary source edits; copies already downloaded by third parties cannot be revoked.
+
 ## Current review — 2026-09-17
 
 - `cargo test --workspace --locked`: 19 tests passed (application 11, core 3, browser 5), plus workspace targets and doc tests.

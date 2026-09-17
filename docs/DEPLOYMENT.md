@@ -160,6 +160,8 @@ Repository secrets:
 - `CLOUDFLARE_API_TOKEN`: dedicated deployment API token; do not copy Wrangler's temporary OAuth or refresh token into CI.
 - `FOLIO_JWT_SECRET`: token signing key, at least 64 characters; see [signing-key setup](#folio-token-signing-key).
 
+Before invoking Wrangler, the deployment step registers each production configuration value and each allowed email as a GitHub log mask. `WRANGLER_LOG=warn` suppresses informational binding summaries and deployment URLs. Do not remove these safeguards or print production configuration during diagnostics. Existing public logs require separate deletion; new masks do not redact old logs.
+
 The deployment step creates its ignored config, validates a production dry run, applies pending D1 migrations, installs the JWT signing secret and deploys. It removes generated configuration on exit. It never changes Access policies or creates a public R2 bucket. Account permission scope must be reviewed when issuing the deployment token.
 
 `FOLIO_PLACEMENT_REGION=aws:ap-east-1` places execution near Hong Kong for the currently observed HKG D1 primary. Omit the optional value to use Smart Placement. Review measurements before changing the hint when moving storage. Browser static assets remain served at the edge.

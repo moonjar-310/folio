@@ -8,7 +8,7 @@ The Refresh Token is an HttpOnly, SameSite=Strict cookie. HTTPS uses `__Host-fol
 
 Business request authorization checks the JWT signature in constant time, the fixed HS256 header, issuer, audience, provider, subject, issued-at and expiry. It never queries the sessions table. Mutations also validate the JWT-bound CSRF value and reject foreign Origins. Refresh Tokens cannot authorize business APIs.
 
-Logout deletes the current Refresh Token row and expires its cookie. An already issued Access JWT remains valid for at most five minutes; deleting session rows does not immediately revoke it. One week after login, a new login is required. Refresh replay is rejected; it does not revoke an entire token family. Simultaneous refreshes in separate tabs can cause one tab to require reauthentication. Draft preservation remains in place.
+Before explicit logout, the browser flushes editor changes and asks whether to save or discard any pending Quick Note. It clears the Quick Note browser backup and in-memory content before ending the session; a cleanup failure blocks logout. Logout deletes the current Refresh Token row and expires its cookie. An already issued Access JWT remains valid for at most five minutes; deleting session rows does not immediately revoke it. One week after login, a new login is required. Refresh replay is rejected; it does not revoke an entire token family. Simultaneous refreshes in separate tabs can cause one tab to require reauthentication. Draft preservation remains in place.
 
 ## Login providers
 

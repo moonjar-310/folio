@@ -35,6 +35,7 @@ pub struct AppState {
     pub pending_goals: RwSignal<BTreeSet<String>>,
     pub task_version: RwSignal<u64>,
     pub quick_saving: RwSignal<bool>,
+    pub quick_saved_text: RwSignal<Option<String>>,
     pub loading: RwSignal<bool>,
     pub maintaining: RwSignal<bool>,
     pub message: RwSignal<String>,
@@ -115,6 +116,103 @@ pub fn new_note(folder: String) -> Note {
     }
 }
 impl AppState {
+    pub fn clear_quick_draft(self) -> bool {
+        let cleared = storage().is_some_and(|s| {
+            s.remove_item("folio-quick-draft").is_ok()
+                && matches!(s.get_item("folio-quick-draft"), Ok(None))
+        });
+        if !cleared {
+            self.error.set("Could not clear the browser draft. Your text is preserved; sign out was cancelled.".into());
+            return false;
+        }
+        self.quick.set(String::new());
+        self.quick_saved_text.set(None);
+        true
+    }
+
+    pub async fn save_quick_note(self) -> bool {
+        let text = self.quick.get_untracked();
+        if self.quick_saving.get_untracked() || text.trim().is_empty() {
+            return false;
+        }
+        if self.quick_saved_text.get_untracked().as_deref() == Some(text.as_str()) {
+            return self.clear_quick_draft();
+        }
+        self.quick_saving.set(true);
+        let id = uuid::Uuid::new_v4().to_string();
+        let result = self
+            .api(
+                "PUT",
+                &format!("/api/notes/{id}"),
+                json!({"markdown":text,"folder":"Personal"}),
+            )
+            .await;
+        self.quick_saving.set(false);
+        match result {
+            Ok(v) => {
+                self.quick_saved_text.set(Some(text));
+                self.merge_note_tasks(&id, &v);
+                if let Ok(summary) = serde_json::from_value::<NoteSummary>(v) {
+                    self.merge_tree_note(&summary);
+                    self.notes.update(|n| n.insert(0, summary));
+                }
+                if !self.clear_quick_draft() {
+                    return false;
+                }
+                self.message.set("Quick note saved".into());
+                self.error.set(String::new());
+                true
+            }
+            Err(e) => {
+                self.error.set(e);
+                false
+            }
+        }
+    }
+
+    pub async fn sign_out(self, save_quick: bool) -> bool {
+        if self.quick_saving.get_untracked() || !self.save().await {
+            return false;
+        }
+        if save_quick
+            && !self.quick.get_untracked().trim().is_empty()
+            && !self.save_quick_note().await
+        {
+            return false;
+        }
+        let draft = self.quick.get_untracked();
+        if !self.clear_quick_draft() {
+            return false;
+        }
+        match self.api("POST", "/api/auth/logout", json!({})).await {
+            Ok(data) => {
+                self.authenticated.set(false);
+                self.csrf.set(String::new());
+                self.access_token.set(String::new());
+                self.token_deadline.set(0.0);
+                self.notes.set(vec![]);
+                self.tasks.set(vec![]);
+                self.goals.set(vec![]);
+                self.results.set(vec![]);
+                self.folder_files.set(BTreeMap::new());
+                self.active.set(new_note("Personal".into()));
+                if data["logout_url"] == "/cdn-cgi/access/logout"
+                    && let Some(w) = web_sys::window()
+                {
+                    let _ = w.location().set_href("/cdn-cgi/access/logout");
+                }
+                true
+            }
+            Err(e) => {
+                self.quick.set(draft.clone());
+                let restored =
+                    storage().is_some_and(|s| s.set_item("folio-quick-draft", &draft).is_ok());
+                self.error.set(if restored { e } else { format!("{e} Your Quick Note remains in this tab; browser backup failed. Keep this tab open.") });
+                false
+            }
+        }
+    }
+
     pub fn new() -> Self {
         let dark = web_sys::window()
             .and_then(|w| w.document())
@@ -155,6 +253,7 @@ impl AppState {
             pending_goals: RwSignal::new(BTreeSet::new()),
             task_version: RwSignal::new(0),
             quick_saving: RwSignal::new(false),
+            quick_saved_text: RwSignal::new(None),
             loading: RwSignal::new(false),
             maintaining: RwSignal::new(false),
             message: RwSignal::new("Ready when you are".into()),

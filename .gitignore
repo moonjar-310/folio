@@ -17,3 +17,16 @@ target/
 .dev.vars
 .dev.vars.*
 crates/worker/build/
+
+# Personal vaults, signing keys and database copies outside the default .local/.
+/vault/
+jwt-secret
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.db-wal
+*.db-shm

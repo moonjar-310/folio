@@ -22,7 +22,7 @@
     "worker:preflight": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs preflight",
     "worker:migrate:remote": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs migrate",
     "worker:deploy": "node --env-file-if-exists=.env.production scripts/cloudflare.mjs deploy",
-    "worker:config:test": "node --test tests/cloudflare-config.test.mjs tests/access.test.mjs",
+    "worker:config:test": "node --test tests/cloudflare-config.test.mjs tests/access.test.mjs tests/production-masking.test.mjs",
     "worker:smoke": "npm run worker:package && node scripts/smoke-worker.mjs && node scripts/smoke-worker.mjs --access",
     "test:api": "node scripts/smoke-product.mjs",
     "preview:check": "node --check preview/server.mjs && node --check ui/components.mjs && node --check ui/pages.mjs && node --check public/app.js"
