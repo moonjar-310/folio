@@ -166,22 +166,76 @@ pub fn TaskForm(
 }
 #[component]
 pub fn GoalCard(goal: Goal, state: AppState) -> impl IntoView {
+    let original = StoredValue::new(goal.clone());
     let title = RwSignal::new(goal.title.clone());
     let description = RwSignal::new(goal.description.clone());
     let position = RwSignal::new(goal.position);
     let status = RwSignal::new(goal.status.clone());
-    let id = goal.id.clone();
-    let pending_id = id.clone();
-    view! {<article class="goal-card">
-        <span class="eyebrow editorial">"Direction"</span><h3>{goal.title}</h3><p>{goal.description}</p>
-        <div class="goal-footer"><span class="meta">{goal.status}</span><details><summary>"Edit goal"</summary>
-            <form class="goal-edit" on:submit=move|e|{e.prevent_default();let id=id.clone();let body=json!({"title":title.get_untracked(),"description":description.get_untracked(),"position":position.get_untracked(),"status":status.get_untracked()});spawn_local(async move{state.mutate_goal(Some(id),body).await;});}>
-                <label>"Title"<input required prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/></label>
-                <label>"Description"<textarea prop:value=move||description.get() on:input=move|e|description.set(event_target_value(&e))></textarea></label>
-                <label>"Order"<input type="number" prop:value=move||position.get() on:input=move|e|position.set(event_target_value(&e).parse().unwrap_or(0))/></label>
-                <label>"Status"<select prop:value=move||status.get() on:change=move|e|status.set(event_target_value(&e))><option value="active">"Active"</option><option value="completed">"Completed"</option><option value="archived">"Archived"</option></select></label>
-                <button class="primary" disabled=move||state.pending_goals.get().contains(&pending_id)>"Save goal"</button>
-            </form>
-        </details></div>
-    </article>}
+    let editing = RwSignal::new(false);
+    let error = RwSignal::new(String::new());
+    let dialog = NodeRef::<leptos::html::Dialog>::new();
+    let heading_id = format!("goal-editor-{}", goal.id);
+    let pending_id = goal.id.clone();
+    let saving = Signal::derive(move || state.pending_goals.get().contains(&pending_id));
+    Effect::new(move |_| {
+        if let Some(dialog) = dialog.get() {
+            if editing.get() {
+                let _ = dialog.show_modal();
+            } else {
+                dialog.close();
+            }
+        }
+    });
+    let open = move |_| {
+        let goal = original.get_value();
+        title.set(goal.title);
+        description.set(goal.description);
+        position.set(goal.position);
+        status.set(goal.status);
+        error.set(String::new());
+        editing.set(true);
+    };
+    let submit = move |e: leptos::ev::SubmitEvent| {
+        e.prevent_default();
+        if saving.get_untracked() {
+            return;
+        }
+        let id = original.get_value().id;
+        let body = json!({"title":title.get_untracked(),"description":description.get_untracked(),"position":position.get_untracked(),"status":status.get_untracked()});
+        error.set(String::new());
+        spawn_local(async move {
+            match state.mutate_goal(Some(id), body).await {
+                Ok(()) => {
+                    editing.try_set(false);
+                }
+                Err(message) => {
+                    error.try_set(message);
+                }
+            }
+        });
+    };
+    view! {
+        <article class="goal-card">
+            <span class="eyebrow editorial">"Direction"</span><h3>{goal.title}</h3><p>{goal.description}</p>
+            <div class="goal-footer"><span class="meta">{goal.status}</span><button class="text-button" aria-haspopup="dialog" on:click=open>"Edit goal"</button></div>
+            <dialog node_ref=dialog class="goal-dialog" aria-labelledby=heading_id.clone()
+                on:keydown=move|e|e.stop_propagation()
+                on:cancel=move|e:web_sys::Event|{if saving.get_untracked(){e.prevent_default();}else{editing.set(false);}}
+                on:close=move|_:web_sys::Event|editing.set(false)>
+                <form on:submit=submit>
+                    <div class="goal-dialog-heading"><div><span class="eyebrow editorial">"Your direction"</span><h2 id=heading_id.clone()>"Edit goal"</h2></div><button class="icon-button" type="button" aria-label="Close goal editor" disabled=move||saving.get() on:click=move |_|editing.set(false)>"×"</button></div>
+                    <div class="goal-edit">
+                        <label>"Title"<input autofocus required disabled=move||saving.get() prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/></label>
+                        <label>"Description"<textarea rows="10" disabled=move||saving.get() prop:value=move||description.get() on:input=move|e|description.set(event_target_value(&e))></textarea></label>
+                        <div class="goal-edit-options">
+                            <label>"Order"<input type="number" disabled=move||saving.get() prop:value=move||position.get() on:input=move|e|position.set(event_target_value(&e).parse().unwrap_or(0))/></label>
+                            <label>"Status"<select disabled=move||saving.get() prop:value=move||status.get() on:change=move|e|status.set(event_target_value(&e))><option value="active">"Active"</option><option value="completed">"Completed"</option><option value="archived">"Archived"</option></select></label>
+                        </div>
+                        <Show when=move||!error.get().is_empty()><p class="error-text" role="alert">{move||error.get()}</p></Show>
+                    </div>
+                    <div class="goal-dialog-actions"><button type="button" disabled=move||saving.get() on:click=move |_|editing.set(false)>"Cancel"</button><button class="primary" type="submit" disabled=move||saving.get()>{move||if saving.get(){"Saving…"}else{"Save goal"}}</button></div>
+                </form>
+            </dialog>
+        </article>
+    }
 }

@@ -862,10 +862,10 @@ impl AppState {
         self.task_query.set(String::new());
         success
     }
-    pub async fn mutate_goal(self, id: Option<String>, body: Value) {
+    pub async fn mutate_goal(self, id: Option<String>, body: Value) -> Result<(), String> {
         let key = id.clone().unwrap_or_default();
         if self.pending_goals.get_untracked().contains(&key) {
-            return;
+            return Err("This goal is already being saved.".into());
         }
         self.pending_goals.update(|pending| {
             pending.insert(key.clone());
@@ -874,7 +874,7 @@ impl AppState {
             .as_ref()
             .map(|s| format!("/api/goals/{s}"))
             .unwrap_or("/api/goals".into());
-        match self
+        let result = match self
             .api(if id.is_some() { "PUT" } else { "POST" }, &path, body)
             .await
         {
@@ -887,12 +887,17 @@ impl AppState {
                     });
                 }
                 self.error.set(String::new());
+                Ok(())
             }
-            Err(e) => self.error.set(e),
-        }
+            Err(e) => {
+                self.error.set(e.clone());
+                Err(e)
+            }
+        };
         self.pending_goals.update(|pending| {
             pending.remove(&key);
         });
+        result
     }
     pub fn toggle_theme(self) {
         self.dark.update(|d| *d = !*d);
