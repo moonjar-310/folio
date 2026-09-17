@@ -76,6 +76,14 @@ try {
   });
   assert.equal(blocked.status, accessMode ? 404 : 403, 'Setup is closed without password-mode setup credentials');
   await run(process.execPath, ['scripts/smoke-product.mjs', url], { cwd: root, env: { ...process.env, FOLIO_TEST_JWT_SECRET: 'test-emulator-only!'.repeat(4), ...(accessToken ? { FOLIO_TEST_ACCESS_TOKEN: accessToken } : {}) } });
+  const storageEnv = { ...process.env, ...(accessToken ? { FOLIO_TEST_ACCESS_TOKEN: accessToken } : {}) };
+  await run(process.execPath, ['scripts/smoke-storage.mjs', url, 'prepare'], { cwd: root, env: storageEnv });
+  // Only this run's mkdtemp-created local D1 is modified. Canonical R2 files and auth stay intact.
+  await run(process.execPath, [wrangler, 'd1', 'execute', 'DB', '--local', '--config', config, '--persist-to', persist,
+    '--command', 'DELETE FROM notes; DELETE FROM folders; DELETE FROM tasks; DELETE FROM goals;'], {
+    cwd: root, env: { ...process.env, CI: 'true', WRANGLER_SEND_METRICS: 'false' },
+  });
+  await run(process.execPath, ['scripts/smoke-storage.mjs', url, 'verify-loss'], { cwd: root, env: storageEnv });
   console.log(`PASS: Cloudflare static HTML/WASM, SPA/API routing, ${accessMode ? 'signed Access JWT' : 'Argon2id password'}, and D1/R2 product workflow.`);
 } catch (error) {
   console.error(error);

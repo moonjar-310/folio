@@ -8,11 +8,12 @@
 - The documented `.dev.vars` generation command passed in an isolated temporary directory: expected key lengths, no secret output and refusal to overwrite an existing file.
 - The repository contains 7 migrations (0001–0007). Current auth uses Argon2id locally and Cloudflare Access in production, with Folio JWT/refresh tokens in both runtimes.
 - README screenshots were captured with Playwright on 2026-09-17 using a separate native demo store and synthetic data, after a successful release frontend build. These images cover Home, Planner, note preview, dark appearance and mobile Todo.
-- This review does not re-run live production login, deployment, CPU measurements or the complete disposable Worker smoke workflows. The historical production deployment and its limits are recorded below.
+- Follow-up: the complete `npm run worker:smoke` passed for password and signed Access modes, including canonical recovery after deleting only derived D1 rows. All 7 migrations applied to each fresh local store. Native filesystem/SQLite recovery passed separately after stopping the test server, clearing derived rows and restarting it.
+- GitHub Actions run [35196579296](https://github.com/moonjar-310/folio/actions/runs/35196579296) for `a65c5a9` completed successfully, including `Deploy main`. This confirms that deployment job; live email login, expiry/logout and sustained production CPU were not re-tested.
 
 The sections below are dated implementation checkpoints, not one current test report. Their counts, auth models, Paid-plan assumptions and deployment status apply only to that checkpoint. Follow [current operation instructions](DEPLOYMENT.md) and [current authentication](AUTH_OPTIONS.md) when running the app.
 
-`scripts/smoke-storage.mjs` is a historical pre-JWT recovery helper: it sends the old cookie/CSRF contract without a Bearer JWT and must be updated before reuse. Current recovery behavior is covered by Rust tests; use `scripts/smoke-product.mjs` and `npm run worker:smoke` for the maintained authenticated HTTP workflows.
+`scripts/smoke-storage.mjs` now uses Bearer JWTs, same-origin requests, refresh rotation and optional signed Access assertions. `scripts/smoke-worker.mjs` runs its prepare/verify-loss phases against the newly created local D1/R2 store in both modes. Between phases the harness clears only notes/folders/tasks/goals SQL rows; canonical files and authentication remain intact. The helper first checks that search/task/goal indexes are empty, then verifies file discovery/open/edit, rebuilding, search, source checkboxes, standalone tasks/goals, and folder moves with empty descendants. Invalid phases are rejected before any HTTP calls.
 
 ## Initial verification — 2026-09-15
 

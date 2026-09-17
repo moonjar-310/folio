@@ -112,7 +112,7 @@ npm run worker:smoke
 cargo test --workspace --locked
 ```
 
-`worker:smoke`는 각각 새 `.local/worker-smoke-*` D1/R2에서 Argon2id 비밀번호 모드와 Access 모드를 검사한다. Access 테스트는 매 실행 생성한 RSA 키/서명 토큰을 전용 임시 entrypoint에 주입한다. 실제 JWT 검증과 Rust 업무 API는 실행하지만 원격 Access 로그인 페이지·이메일 전달·정책 집행을 대신 검증하지는 않는다. 생산 entrypoint는 팀 도메인의 JWKS만 사용한다. 테스트 서버는 종료하며 디버깅용 파일은 남긴다.
+`worker:smoke`는 각각 새 `.local/worker-smoke-*` D1/R2에서 Argon2id 비밀번호 모드와 Access 모드를 검사한다. Access 테스트는 매 실행 생성한 RSA 키/서명 토큰을 전용 임시 entrypoint에 주입한다. 실제 JWT 검증과 Rust 업무 API는 실행하지만 원격 Access 로그인 페이지·이메일 전달·정책 집행을 대신 검증하지는 않는다. 생산 entrypoint는 팀 도메인의 JWKS만 사용한다. 제품 흐름 확인 후 같은 임시 저장소에 복구 샘플을 만들고, 로컬 D1의 notes/folders/tasks/goals 인덱스만 삭제한 뒤 원본 파일 탐색·편집·재색인·폴더 이동을 검증한다. R2 원본과 인증 테이블은 유지한다. 이 삭제는 자동 생성한 임시 로컬 저장소에서만 수행하며 원격 DB에는 실행하지 않는다. 테스트 서버는 종료하며 디버깅용 파일은 남긴다.
 
 일반 비밀번호는 Argon2id v19, 메모리 19 MiB, 반복 2회, 병렬도 1이다. 기존 PBKDF2-SHA256 600,000회 해시는 올바른 비밀번호로 로그인한 경우에만 Argon2id로 전환하며 실패한 로그인에서는 변경하지 않는다. 로컬 데이터에 자동 선행 변환은 수행하지 않는다.
 
