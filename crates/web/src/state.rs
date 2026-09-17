@@ -31,6 +31,10 @@ pub struct AppState {
     pub active: RwSignal<Note>,
     pub dirty: RwSignal<bool>,
     pub busy: RwSignal<bool>,
+    pub pending_tasks: RwSignal<BTreeSet<String>>,
+    pub pending_goals: RwSignal<BTreeSet<String>>,
+    pub task_version: RwSignal<u64>,
+    pub quick_saving: RwSignal<bool>,
     pub loading: RwSignal<bool>,
     pub maintaining: RwSignal<bool>,
     pub message: RwSignal<String>,
@@ -147,6 +151,10 @@ impl AppState {
             active: RwSignal::new(new_note(default_folder())),
             dirty: RwSignal::new(false),
             busy: RwSignal::new(false),
+            pending_tasks: RwSignal::new(BTreeSet::new()),
+            pending_goals: RwSignal::new(BTreeSet::new()),
+            task_version: RwSignal::new(0),
+            quick_saving: RwSignal::new(false),
             loading: RwSignal::new(false),
             maintaining: RwSignal::new(false),
             message: RwSignal::new("Ready when you are".into()),
@@ -713,6 +721,7 @@ impl AppState {
         }
         self.task_epoch.update(|e| *e += 1);
         let epoch = self.task_epoch.get_untracked();
+        let version = self.task_version.get_untracked();
         let offset = if more {
             self.next_tasks.get_untracked().unwrap_or(0)
         } else {
@@ -730,8 +739,16 @@ impl AppState {
                 if epoch != self.task_epoch.get_untracked() {
                     return;
                 }
-                let items =
+                if version != self.task_version.get_untracked() {
+                    self.task_query.set(String::new());
+                    Box::pin(self.load_tasks(query, more)).await;
+                    return;
+                }
+                let mut items =
                     serde_json::from_value::<Vec<Task>>(v["items"].clone()).unwrap_or_default();
+                let pending = self.pending_tasks.get_untracked();
+                let current = self.tasks.get_untracked();
+                preserve_pending_tasks(&mut items, &current, &pending);
                 if more {
                     self.tasks.update(|t| {
                         for item in items {
@@ -778,16 +795,32 @@ impl AppState {
             });
         }
     }
-    pub async fn mutate_task(self, id: Option<String>, body: Value) {
-        if self.busy.get_untracked() {
-            return;
+    pub async fn mutate_task(self, id: Option<String>, body: Value) -> bool {
+        let key = id.clone().unwrap_or_default();
+        if self.pending_tasks.get_untracked().contains(&key) {
+            return false;
         }
-        self.busy.set(true);
+        self.pending_tasks.update(|pending| {
+            pending.insert(key.clone());
+        });
+        self.task_version.update(|v| *v += 1);
+        let previous = self
+            .tasks
+            .get_untracked()
+            .into_iter()
+            .find(|t| Some(&t.id) == id.as_ref());
+        if let (Some(task), Some(completed)) = (&previous, body["completed"].as_bool()) {
+            self.tasks.update(|items| {
+                if let Some(item) = items.iter_mut().find(|item| item.id == task.id) {
+                    item.completed = completed;
+                }
+            });
+        }
         let path = id
             .as_ref()
             .map(|s| format!("/api/tasks/{s}"))
             .unwrap_or("/api/tasks".into());
-        match self
+        let success = match self
             .api(if id.is_some() { "PUT" } else { "POST" }, &path, body)
             .await
         {
@@ -808,16 +841,35 @@ impl AppState {
                     });
                 }
                 self.error.set(String::new());
+                true
             }
-            Err(e) => self.error.set(e),
-        }
-        self.busy.set(false);
+            Err(e) => {
+                if let Some(previous) = previous {
+                    self.tasks.update(|items| {
+                        if let Some(item) = items.iter_mut().find(|t| t.id == previous.id) {
+                            *item = previous;
+                        }
+                    });
+                }
+                self.error.set(e);
+                false
+            }
+        };
+        self.pending_tasks.update(|pending| {
+            pending.remove(&key);
+        });
+        self.task_version.update(|v| *v += 1);
+        self.task_query.set(String::new());
+        success
     }
     pub async fn mutate_goal(self, id: Option<String>, body: Value) {
-        if self.busy.get_untracked() {
+        let key = id.clone().unwrap_or_default();
+        if self.pending_goals.get_untracked().contains(&key) {
             return;
         }
-        self.busy.set(true);
+        self.pending_goals.update(|pending| {
+            pending.insert(key.clone());
+        });
         let path = id
             .as_ref()
             .map(|s| format!("/api/goals/{s}"))
@@ -838,7 +890,9 @@ impl AppState {
             }
             Err(e) => self.error.set(e),
         }
-        self.busy.set(false);
+        self.pending_goals.update(|pending| {
+            pending.remove(&key);
+        });
     }
     pub fn toggle_theme(self) {
         self.dark.update(|d| *d = !*d);
@@ -856,5 +910,58 @@ impl AppState {
         {
             let _ = root.set_attribute("data-theme", theme);
         }
+    }
+}
+
+// List reads may finish while independent task writes are still pending.
+fn preserve_pending_tasks(items: &mut [Task], current: &[Task], pending: &BTreeSet<String>) {
+    for item in items {
+        if pending.contains(&item.id)
+            && let Some(local) = current.iter().find(|t| t.id == item.id)
+        {
+            *item = local.clone();
+        }
+    }
+}
+
+#[cfg(test)]
+mod task_sync_tests {
+    use super::*;
+
+    #[test]
+    fn stale_list_preserves_multiple_pending_checks_but_accepts_other_updates() {
+        let task = |id: &str, completed| Task {
+            id: id.into(),
+            completed,
+            ..Task::default()
+        };
+        let current = vec![task("a", true), task("b", false), task("c", false)];
+        let mut incoming = vec![task("a", false), task("b", true), task("c", true)];
+        preserve_pending_tasks(
+            &mut incoming,
+            &current,
+            &BTreeSet::from(["a".into(), "b".into()]),
+        );
+        assert!(incoming[0].completed);
+        assert!(!incoming[1].completed);
+        assert!(incoming[2].completed);
+    }
+
+    #[test]
+    fn settled_tasks_accept_server_state_without_adding_items_from_another_view() {
+        let current = vec![Task {
+            id: "a".into(),
+            completed: true,
+            ..Task::default()
+        }];
+        let mut incoming = vec![Task {
+            id: "a".into(),
+            ..Task::default()
+        }];
+        preserve_pending_tasks(&mut incoming, &current, &BTreeSet::new());
+        assert!(!incoming[0].completed);
+        let mut empty = vec![];
+        preserve_pending_tasks(&mut empty, &current, &BTreeSet::from(["a".into()]));
+        assert!(empty.is_empty());
     }
 }

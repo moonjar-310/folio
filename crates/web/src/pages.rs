@@ -31,26 +31,26 @@ pub fn Home(state: AppState) -> impl IntoView {
         <div class="page-intro"><h1>{move||format!("A little space, {}.",if state.username.get().is_empty(){"for you".into()}else{state.username.get()})}</h1><p class="serif-subtitle">"Make room for what matters."</p></div>
         <section>
             <SectionHeading title="What Matters" icon="goal"><button class="text-button" on:click=move |_|adding.update(|v|*v = !*v)><Icon name="add"/>"Add goal"</button></SectionHeading>
-            <Show when=move||adding.get()><form class="inline-form" on:submit=move|e|{e.prevent_default();let body=json!({"title":title.get_untracked(),"description":description.get_untracked(),"position":state.goals.get_untracked().len()});spawn_local(async move{state.mutate_goal(None,body).await;if state.error.get_untracked().is_empty(){title.set(String::new());description.set(String::new());adding.set(false);}});}>
+            <Show when=move||adding.get()><form class="inline-form" on:submit=move|e|{e.prevent_default();let body=json!({"title":title.get_untracked(),"description":description.get_untracked(),"position":state.goals.get_untracked().len()});spawn_local(async move{state.mutate_goal(None,body).await;if state.error.get_untracked().is_empty(){title.try_set(String::new());description.try_set(String::new());adding.try_set(false);}});}>
                 <label>"Long-term direction"<input required placeholder="What do you want to make room for?" prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/></label>
                 <label>"A little context"<textarea prop:value=move||description.get() on:input=move|e|description.set(event_target_value(&e))></textarea></label>
-                <button class="primary" disabled=move||state.busy.get()>"Create goal"</button>
+                <button class="primary" disabled=move||state.pending_goals.get().contains("")>"Create goal"</button>
             </form></Show>
             <Show when=move||!state.goals.get().iter().any(|g|g.status=="active")><p class="empty">"Give your days a direction. Add a goal you want to return to."</p></Show>
             <div class="goals-grid"><For each={move||state.goals.get().into_iter().filter(|g|g.status=="active").collect::<Vec<_>>()} key=|g|(g.id.clone(),g.updated_at) children=move|goal|view!{<GoalCard goal state/>}/></div>
         </section>
         <section class="agenda"><SectionHeading title="Today's intentions" icon="planner"><span class="meta">{move||format!("{} open",tasks.get().iter().filter(|t|!t.completed).count())}</span></SectionHeading><TaskList state items=tasks/><TaskForm state initial_date=today()/><Show when=move||state.next_tasks.get().is_some()><button class="load-more" on:click=move |_|spawn_local(async move{state.load_tasks(state.tasks_for_page(),true).await;})>"More intentions"</button></Show></section>
         <section class="quick-note"><SectionHeading title="Quick Note" icon="notes"><span class="meta">"A thought worth keeping"</span></SectionHeading>
-            <form on:submit=move|e|{e.prevent_default();let text=quick.get_untracked();if text.trim().is_empty()||state.busy.get_untracked(){return;}state.busy.set(true);spawn_local(async move{
+            <form on:submit=move|e|{e.prevent_default();let text=quick.get_untracked();if text.trim().is_empty()||state.quick_saving.get_untracked(){return;}state.quick_saving.set(true);spawn_local(async move{
                 let id=uuid::Uuid::new_v4().to_string();
                 match state.api("PUT",&format!("/api/notes/{id}"),json!({"markdown":text,"folder":"Personal"})).await{
                     Ok(v)=>{state.merge_note_tasks(&id,&v);if let Ok(summary)=serde_json::from_value::<NoteSummary>(v){state.merge_tree_note(&summary);state.notes.update(|n|n.insert(0,summary));}quick.set(String::new());if let Some(s)=storage(){let _=s.remove_item("folio-quick-draft");}state.message.set("Quick note saved".into());state.error.set(String::new());},
                     Err(e)=>state.error.set(e),
                 }
-                state.busy.set(false);
+                state.quick_saving.set(false);
             });}>
-                <textarea id="quick-note" disabled=move||state.busy.get() aria-label="Quick note" placeholder="Write a fleeting thought or capture an idea…" prop:value=move||quick.get() on:input=move|e|{let value=event_target_value(&e);if let Some(s)=storage(){let _=s.set_item("folio-quick-draft",&value);}quick.set(value);}></textarea>
-                <div class="quick-footer"><span class="meta">"Saved as a new note"</span><button class="primary" disabled=move||state.busy.get()||quick.get().trim().is_empty()>"Save note"<Icon name="arrow"/></button></div>
+                <textarea id="quick-note" disabled=move||state.quick_saving.get() aria-label="Quick note" placeholder="Write a fleeting thought or capture an idea…" prop:value=move||quick.get() on:input=move|e|{let value=event_target_value(&e);if let Some(s)=storage(){let _=s.set_item("folio-quick-draft",&value);}quick.set(value);}></textarea>
+                <div class="quick-footer"><span class="meta">"Saved as a new note"</span><button class="primary" disabled=move||state.quick_saving.get()||quick.get().trim().is_empty()>"Save note"<Icon name="arrow"/></button></div>
             </form>
         </section>
         <section><SectionHeading title="Recently edited" icon="notes"><button class="text-button" on:click=move |_|spawn_local(async move{state.folder.set(String::new());state.load_notes(false).await;state.navigate("Notes").await;})>"All notes"<Icon name="arrow"/></button></SectionHeading>

@@ -85,11 +85,10 @@ pub fn TaskRow(
     let time = RwSignal::new(task.due_time.clone().unwrap_or_default());
     let source = task.source_note_id.clone();
     let has_source = source.is_some();
-    let was_completed = task.completed;
     view! {
         <div class="task-row" class:completed=task.completed>
             <label class="task-check"><input type="checkbox" aria-label=format!("Complete {}",task.title) prop:checked=task.completed disabled=move||busy.get()
-                on:change=move|e|{let checked=event_target_checked(&e);event_target::<web_sys::HtmlInputElement>(&e).set_checked(was_completed);on_change.run((check_id.clone(),json!({"completed":checked})));}/></label>
+                on:change=move|e|{let checked=event_target_checked(&e);on_change.run((check_id.clone(),json!({"completed":checked})));}/></label>
             <span class="task-title">{task.title.clone()}</span>
             {source.map(|note|view!{<button class="source-link" aria-label="Open source note" on:click=move |_|on_open.run(note.clone())><Icon name="notes"/><span>"Source note"</span></button>})}
             <span class="task-date meta">{task.due_date.clone().filter(|d|d!=&today()).unwrap_or_default()}</span><span class="task-time">{task.due_time.clone().unwrap_or_default()}</span>
@@ -118,6 +117,13 @@ pub fn TaskList(state: AppState, items: Signal<Vec<Task>>) -> impl IntoView {
         })
     });
     let delete = Callback::new(move |id: String| {
+        if state.pending_tasks.get_untracked().contains(&id) {
+            return;
+        }
+        state.pending_tasks.update(|pending| {
+            pending.insert(id.clone());
+        });
+        state.task_version.update(|v| *v += 1);
         spawn_local(async move {
             match state
                 .api("DELETE", &format!("/api/tasks/{id}"), json!({}))
@@ -126,12 +132,17 @@ pub fn TaskList(state: AppState, items: Signal<Vec<Task>>) -> impl IntoView {
                 Ok(_) => state.tasks.update(|t| t.retain(|t| t.id != id)),
                 Err(e) => state.error.set(e),
             }
+            state.pending_tasks.update(|pending| {
+                pending.remove(&id);
+            });
+            state.task_version.update(|v| *v += 1);
+            state.task_query.set(String::new());
         })
     });
     view! {
         <div class="task-list">
             <Show when=move||items.get().is_empty()><p class="empty">"A little breathing room. Add an intention when you're ready."</p></Show>
-            <For each=move||items.get() key=|t|(t.id.clone(),t.updated_at,t.completed,t.title.clone()) children=move|task|view!{<TaskRow task busy=Signal::derive(move||state.busy.get()) on_change=change on_open=open on_delete=delete/>}/>
+            <For each=move||items.get() key=|t|(t.id.clone(),t.updated_at,t.completed,t.title.clone()) children=move|task|{let id=task.id.clone();view!{<TaskRow task busy=Signal::derive(move||state.pending_tasks.get().contains(&id)) on_change=change on_open=open on_delete=delete/>}}/>
         </div>
     }
 }
@@ -145,12 +156,12 @@ pub fn TaskForm(
     let time = RwSignal::new(String::new());
     view! {<form class="task-form" on:submit=move|e|{
         e.prevent_default();let body=json!({"title":title.get_untracked(),"due_date":date.get_untracked(),"due_time":time.get_untracked()});
-        spawn_local(async move{state.mutate_task(None,body).await;if state.error.get_untracked().is_empty(){title.set(String::new());}});
+        spawn_local(async move{if state.mutate_task(None,body).await{title.try_set(String::new());}});
     }>
-        <Icon name="add"/><input class="task-add-title" aria-label="New task" disabled=move||state.busy.get() placeholder="Add an intention…" required maxlength="500" prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/>
-        <input aria-label="New task due date" disabled=move||state.busy.get() type="date" prop:value=move||date.get() on:input=move|e|date.set(event_target_value(&e))/>
-        <input aria-label="New task time" disabled=move||state.busy.get() type="time" prop:value=move||time.get() on:input=move|e|time.set(event_target_value(&e))/>
-        <button type="submit" disabled=move||state.busy.get()>"Add"</button>
+        <Icon name="add"/><input class="task-add-title" aria-label="New task" disabled=move||state.pending_tasks.get().contains("") placeholder="Add an intention…" required maxlength="500" prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/>
+        <input aria-label="New task due date" disabled=move||state.pending_tasks.get().contains("") type="date" prop:value=move||date.get() on:input=move|e|date.set(event_target_value(&e))/>
+        <input aria-label="New task time" disabled=move||state.pending_tasks.get().contains("") type="time" prop:value=move||time.get() on:input=move|e|time.set(event_target_value(&e))/>
+        <button type="submit" disabled=move||state.pending_tasks.get().contains("")>"Add"</button>
     </form>}
 }
 #[component]
@@ -160,6 +171,7 @@ pub fn GoalCard(goal: Goal, state: AppState) -> impl IntoView {
     let position = RwSignal::new(goal.position);
     let status = RwSignal::new(goal.status.clone());
     let id = goal.id.clone();
+    let pending_id = id.clone();
     view! {<article class="goal-card">
         <span class="eyebrow editorial">"Direction"</span><h3>{goal.title}</h3><p>{goal.description}</p>
         <div class="goal-footer"><span class="meta">{goal.status}</span><details><summary>"Edit goal"</summary>
@@ -168,7 +180,7 @@ pub fn GoalCard(goal: Goal, state: AppState) -> impl IntoView {
                 <label>"Description"<textarea prop:value=move||description.get() on:input=move|e|description.set(event_target_value(&e))></textarea></label>
                 <label>"Order"<input type="number" prop:value=move||position.get() on:input=move|e|position.set(event_target_value(&e).parse().unwrap_or(0))/></label>
                 <label>"Status"<select prop:value=move||status.get() on:change=move|e|status.set(event_target_value(&e))><option value="active">"Active"</option><option value="completed">"Completed"</option><option value="archived">"Archived"</option></select></label>
-                <button class="primary" disabled=move||state.busy.get()>"Save goal"</button>
+                <button class="primary" disabled=move||state.pending_goals.get().contains(&pending_id)>"Save goal"</button>
             </form>
         </details></div>
     </article>}
