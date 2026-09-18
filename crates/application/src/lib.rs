@@ -169,8 +169,11 @@ impl<S: Store> Application<S> {
                     .await?;
                 let mut task_query = std::collections::HashMap::new();
                 if let Some(today) = query.get("today") {
-                    task_query.insert("group".into(), "today".into());
-                    task_query.insert("today".into(), today.clone());
+                    if !valid_date(today) {
+                        return Err(fail(400, "A valid current date is required"));
+                    }
+                    task_query.insert("from".into(), today.clone());
+                    task_query.insert("to".into(), today.clone());
                 }
                 let tasks = self.list_tasks(&task_query).await?;
                 let goals = self

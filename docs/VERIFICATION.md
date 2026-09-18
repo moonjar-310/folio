@@ -1,5 +1,12 @@
 # Verification results
 
+## Home intentions date filtering — 2026-09-18
+
+- Home now shows only tasks due on the current local day; Todo retains overdue tasks.
+- The application regression test verifies workspace bootstrap with more than 200 past tasks, today's paginated results (including completed tasks), exclusion of future tasks, preserved Todo overdue results, and rejection of an empty current date.
+- Playwright with synthetic September 16–19 fixtures verified Home after reload, Todo and return navigation, and a simulated September 18–19 rollover. Only each day's intentions appeared on Home; September 16–17 remained available in Todo.
+- Application tests (11), release browser build, formatting and diff checks passed.
+
 ## Local date rollover — 2026-09-18
 
 - Reproduced the previous stale Home date by advancing Playwright's clock from September 17, 23:59 to September 18, 00:01 in Asia/Seoul and returning focus to the tab.

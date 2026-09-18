@@ -272,6 +272,74 @@ fn complete_workspace_roundtrip() {
             ))
             .await;
         assert_eq!(invalid.status, 400);
+        // Older intentions must not fill Home's first page or leak into pagination.
+        let mut fixtures = Vec::new();
+        for (day, count) in [
+            ("2026-09-16", 205),
+            ("2026-09-17", 1),
+            ("2026-09-18", 201),
+            ("2026-09-19", 1),
+        ] {
+            for i in 0..count {
+                fixtures.push(planning::task_statement(&Task {
+                    id: format!("home-{day}-{i:03}"),
+                    title: format!("Synthetic {day} {i}"),
+                    due_date: Some(day.into()),
+                    completed: i == 200,
+                    ..Default::default()
+                }));
+            }
+        }
+        app.store.batch(fixtures).await.unwrap();
+        let workspace = app
+            .handle(Request {
+                query: "today=2026-09-18".into(),
+                ..request("GET", "/api/workspace", json!({}))
+            })
+            .await;
+        assert_eq!(workspace.status, 200);
+        let home = &workspace.body["tasks"];
+        assert_eq!(home["items"].as_array().unwrap().len(), 200);
+        assert!(
+            home["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|t| t["due_date"] == "2026-09-18")
+        );
+        assert_eq!(home["next_offset"], 200);
+        let remaining = app
+            .handle(Request {
+                query: "from=2026-09-18&to=2026-09-18&offset=200".into(),
+                ..request("GET", "/api/tasks", json!({}))
+            })
+            .await;
+        assert_eq!(remaining.status, 200);
+        assert_eq!(remaining.body["items"].as_array().unwrap().len(), 1);
+        assert_eq!(remaining.body["items"][0]["due_date"], "2026-09-18");
+        assert_eq!(remaining.body["items"][0]["completed"], true);
+        assert!(remaining.body["next_offset"].is_null());
+        let overdue = app
+            .handle(Request {
+                query: "group=today&today=2026-09-18".into(),
+                ..request("GET", "/api/tasks", json!({}))
+            })
+            .await;
+        assert_eq!(overdue.status, 200);
+        assert!(
+            overdue.body["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|t| t["due_date"] == "2026-09-16")
+        );
+        let invalid_workspace = app
+            .handle(Request {
+                query: "today=".into(),
+                ..request("GET", "/api/workspace", json!({}))
+            })
+            .await;
+        assert_eq!(invalid_workspace.status, 400);
         let before = read.body["markdown"].as_str().unwrap().to_string();
         app.store
             .execute(statement("DROP TABLE folders", vec![]))

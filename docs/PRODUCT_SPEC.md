@@ -65,7 +65,7 @@ Default landing page.
 Shows:
 - Current date
 - What Matters / Goals
-- Today's Todo
+- Today's Todo (due on the current local date only; overdue tasks remain in Todo)
 - Quick Note
 - Recently Edited Notes
 

@@ -27,7 +27,7 @@ pub fn Home(state: AppState) -> impl IntoView {
             .filter(|t| {
                 t.due_date
                     .as_deref()
-                    .is_some_and(|d| d <= state.current_day.get().as_str())
+                    .is_some_and(|d| d == state.current_day.get().as_str())
             })
             .collect::<Vec<_>>()
     });

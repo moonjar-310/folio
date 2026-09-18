@@ -525,7 +525,7 @@ impl AppState {
                 self.tasks
                     .set(serde_json::from_value(v["tasks"]["items"].clone()).unwrap_or_default());
                 self.task_query
-                    .set(format!("group=today&today={requested_day}"));
+                    .set(format!("from={requested_day}&to={requested_day}"));
                 self.next_tasks.set(v["tasks"]["next_offset"].as_u64());
                 self.goals
                     .set(serde_json::from_value(v["goals"].clone()).unwrap_or_default());
@@ -904,7 +904,10 @@ impl AppState {
                     dates.last().unwrap()
                 )
             }
-            _ => format!("group=today&today={}", self.current_day.get_untracked()),
+            _ => {
+                let day = self.current_day.get_untracked();
+                format!("from={day}&to={day}")
+            }
         }
     }
     pub fn merge_note_tasks(self, id: &str, v: &Value) {
