@@ -9,6 +9,7 @@ pub fn Home(state: AppState) -> impl IntoView {
     let description = RwSignal::new(String::new());
     let quick = state.quick;
     Effect::new(move |_| {
+        let _ = state.current_day.get();
         spawn_local(async move {
             state.load_tasks(state.tasks_for_page(), false).await;
         });
@@ -23,11 +24,15 @@ pub fn Home(state: AppState) -> impl IntoView {
             .tasks
             .get()
             .into_iter()
-            .filter(|t| t.due_date.as_deref().is_some_and(|d| d <= today().as_str()))
+            .filter(|t| {
+                t.due_date
+                    .as_deref()
+                    .is_some_and(|d| d <= state.current_day.get().as_str())
+            })
             .collect::<Vec<_>>()
     });
     view! {<div class="reading-page home">
-        <div class="date-strip"><span class="meta"><span class="dot"></span>{nice_date(&today())}</span><button class="text-button" on:click=move |_|spawn_local(async move{state.daily().await;})>"Open today's Daily Note"<Icon name="arrow"/></button></div>
+        <div class="date-strip"><span class="meta"><span class="dot"></span>{move || nice_date(&state.current_day.get())}</span><button class="text-button" on:click=move |_|spawn_local(async move{state.daily().await;})>"Open today's Daily Note"<Icon name="arrow"/></button></div>
         <div class="page-intro"><h1>{move||format!("A little space, {}.",if state.username.get().is_empty(){"for you".into()}else{state.username.get()})}</h1><p class="serif-subtitle">"Make room for what matters."</p></div>
         <section>
             <SectionHeading title="What Matters" icon="goal"><button class="text-button" on:click=move |_|adding.update(|v|*v = !*v)><Icon name="add"/>"Add goal"</button></SectionHeading>
@@ -39,7 +44,7 @@ pub fn Home(state: AppState) -> impl IntoView {
             <Show when=move||!state.goals.get().iter().any(|g|g.status=="active")><p class="empty">"Give your days a direction. Add a goal you want to return to."</p></Show>
             <div class="goals-grid"><For each={move||state.goals.get().into_iter().filter(|g|g.status=="active").collect::<Vec<_>>()} key=|g|(g.id.clone(),g.updated_at,g.title.clone(),g.description.clone(),g.position,g.status.clone()) children=move|goal|view!{<GoalCard goal state/>}/></div>
         </section>
-        <section class="agenda"><SectionHeading title="Today's intentions" icon="planner"><span class="meta">{move||format!("{} open",tasks.get().iter().filter(|t|!t.completed).count())}</span></SectionHeading><TaskList state items=tasks/><TaskForm state initial_date=today()/><Show when=move||state.next_tasks.get().is_some()><button class="load-more" on:click=move |_|spawn_local(async move{state.load_tasks(state.tasks_for_page(),true).await;})>"More intentions"</button></Show></section>
+        <section class="agenda"><SectionHeading title="Today's intentions" icon="planner"><span class="meta">{move||format!("{} open",tasks.get().iter().filter(|t|!t.completed).count())}</span></SectionHeading><TaskList state items=tasks/><TaskForm state initial_date=state.current_day.get_untracked() follow_today=true/><Show when=move||state.next_tasks.get().is_some()><button class="load-more" on:click=move |_|spawn_local(async move{state.load_tasks(state.tasks_for_page(),true).await;})>"More intentions"</button></Show></section>
         <section class="quick-note"><SectionHeading title="Quick Note" icon="notes"><span class="meta">"A thought worth keeping"</span></SectionHeading>
             <form on:submit=move|e|{e.prevent_default();spawn_local(async move{state.save_quick_note().await;});}>
                 <textarea id="quick-note" disabled=move||state.quick_saving.get() aria-label="Quick note" placeholder="Write a fleeting thought or capture an idea…" prop:value=move||quick.get() on:input=move|e|{let value=event_target_value(&e);if let Some(s)=storage(){let _=s.set_item("folio-quick-draft",&value);}quick.set(value);}></textarea>
@@ -56,6 +61,7 @@ pub fn Home(state: AppState) -> impl IntoView {
 #[component]
 pub fn Todo(state: AppState) -> impl IntoView {
     Effect::new(move |_| {
+        let _ = state.current_day.get();
         let _ = state.task_group.get();
         spawn_local(async move {
             state.load_tasks(state.tasks_for_page(), false).await;
@@ -66,13 +72,13 @@ pub fn Todo(state: AppState) -> impl IntoView {
         <div class="todo-layout"><section>
             <h2 class="section-title">{move||state.task_group.get()}</h2>
             <TaskList state items=Signal::derive(move||{
-                let today=today();let group=state.task_group.get();
+                let today=state.current_day.get();let group=state.task_group.get();
                 state.tasks.get().into_iter().filter(|t|match group.as_str(){
                     "Completed"=>t.completed,"Upcoming"=>!t.completed&&t.due_date.as_ref().is_some_and(|d|d>&today),
                     "Someday"=>!t.completed&&t.due_date.is_none(),_=>!t.completed&&t.due_date.as_ref().is_some_and(|d|d<=&today),
                 }).collect()
             })/>
-            <TaskForm state initial_date=today()/>
+            <TaskForm state initial_date=state.current_day.get_untracked() follow_today=true/>
             <Show when=move||state.next_tasks.get().is_some()><button class="load-more" on:click=move |_|spawn_local(async move{
                 state.load_tasks(state.tasks_for_page(),true).await;
             })>"Load more tasks"</button></Show>
@@ -106,7 +112,7 @@ pub fn Planner(state: AppState) -> impl IntoView {
         <div class="planner-controls"><button aria-label="Previous period" on:click=move |_|state.date.update(|d|*d=shift_date(d,if state.weekly.get_untracked(){-7}else{-1}))>"‹"</button>
         <input aria-label="Planner date" type="date" prop:value=move||state.date.get() on:change=move|e|{let d=event_target_value(&e);if folio_core::valid_date(&d){state.date.set(d);}}/>
         <button aria-label="Next period" on:click=move |_|state.date.update(|d|*d=shift_date(d,if state.weekly.get_untracked(){7}else{1}))>"›"</button>
-        <button on:click=move |_|state.date.set(today())>"Today"</button></div>
+        <button on:click=move |_|{state.sync_local_day();state.date.set(state.current_day.get_untracked());}>"Today"</button></div>
         <div class="tabs"><button class:selected=move||state.weekly.get() aria-pressed=move||state.weekly.get() on:click=move |_|state.weekly.set(true)>"Week"</button><button class:selected=move||!state.weekly.get() aria-pressed=move||!state.weekly.get() on:click=move |_|state.weekly.set(false)>"Day"</button></div>
         </div>
         <div class="week-grid" class:daily=move||!state.weekly.get()>
@@ -130,7 +136,9 @@ fn PlannerDay(state: AppState, day: String) -> impl IntoView {
             .collect()
     });
     let adding = RwSignal::new(false);
-    view! {<section class="planner-day" class:today=day==today()><div class="day-label"><span>{nice_date(&day)}</span>{(day==today()).then(||view!{<span class="badge">"Today"</span>})}</div>
+    let is_today = Signal::derive(move || initial == state.current_day.get());
+    let initial = day.clone();
+    view! {<section class="planner-day" class:today=move||is_today.get()><div class="day-label"><span>{nice_date(&day)}</span><Show when=move||is_today.get()><span class="badge">"Today"</span></Show></div>
         <TaskList state items/>
         <button class="text-button add-day" on:click=move |_|adding.update(|v|*v = !*v)><Icon name="add"/>"Add intention"</button>
         <Show when=move||adding.get()><TaskForm state initial_date=initial.clone()/></Show>

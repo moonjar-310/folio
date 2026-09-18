@@ -114,7 +114,25 @@ fn App() -> impl IntoView {
             );
         });
     });
-    let listeners = StoredValue::new_local((unload, keys, pop));
+    // Date checks are local-only. Task reads happen only when the day changes.
+    let focus = gloo_events::EventListener::new(&window, "focus", move |_| state.sync_local_day());
+    let pageshow =
+        gloo_events::EventListener::new(&window, "pageshow", move |_| state.sync_local_day());
+    let document = window.document().unwrap();
+    let visible = gloo_events::EventListener::new(&document, "visibilitychange", move |_| {
+        state.sync_local_day()
+    });
+    let clock = set_interval_with_handle(
+        move || state.sync_local_day(),
+        std::time::Duration::from_secs(30),
+    )
+    .ok();
+    on_cleanup(move || {
+        if let Some(clock) = clock {
+            clock.clear();
+        }
+    });
+    let listeners = StoredValue::new_local((unload, keys, pop, focus, pageshow, visible));
     on_cleanup(move || listeners.dispose());
     view! {
         <Show when=move||state.ready.get() fallback=||view!{<div class="boot"><Brand/><p>"Opening your workspace…"</p></div>}>

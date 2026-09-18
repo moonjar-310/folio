@@ -55,6 +55,7 @@ pub struct AppState {
     pub preview: RwSignal<bool>,
     pub dark: RwSignal<bool>,
     pub epoch: RwSignal<u64>,
+    pub current_day: RwSignal<String>,
     pub date: RwSignal<String>,
     pub weekly: RwSignal<bool>,
     pub task_group: RwSignal<String>,
@@ -116,6 +117,21 @@ pub fn new_note(folder: String) -> Note {
     }
 }
 impl AppState {
+    pub fn sync_local_day(self) {
+        let next = today();
+        let previous = self.current_day.get_untracked();
+        if next == previous {
+            return;
+        }
+        batch(move || {
+            // Follow today, but preserve a deliberately selected planner date.
+            if self.date.get_untracked() == previous {
+                self.date.set(next.clone());
+            }
+            self.current_day.set(next);
+        });
+    }
+
     pub fn clear_quick_draft(self) -> bool {
         let cleared = storage().is_some_and(|s| {
             s.remove_item("folio-quick-draft").is_ok()
@@ -277,6 +293,7 @@ impl AppState {
             preview: RwSignal::new(false),
             dark: RwSignal::new(dark),
             epoch: RwSignal::new(0),
+            current_day: RwSignal::new(today()),
             date: RwSignal::new(today()),
             weekly: RwSignal::new(true),
             task_group: RwSignal::new("Today".into()),
@@ -490,11 +507,13 @@ impl AppState {
         );
     }
     pub async fn load_workspace(self) {
+        self.sync_local_day();
+        let requested_day = self.current_day.get_untracked();
         self.loading.set(true);
         match self
             .api(
                 "GET",
-                &format!("/api/workspace?today={}", today()),
+                &format!("/api/workspace?today={requested_day}"),
                 Value::Null,
             )
             .await
@@ -506,7 +525,7 @@ impl AppState {
                 self.tasks
                     .set(serde_json::from_value(v["tasks"]["items"].clone()).unwrap_or_default());
                 self.task_query
-                    .set(format!("group=today&today={}", today()));
+                    .set(format!("group=today&today={requested_day}"));
                 self.next_tasks.set(v["tasks"]["next_offset"].as_u64());
                 self.goals
                     .set(serde_json::from_value(v["goals"].clone()).unwrap_or_default());
@@ -748,7 +767,9 @@ impl AppState {
         self.busy.set(false);
     }
     pub async fn daily(self) {
-        let id = format!("daily-{}", today());
+        self.sync_local_day();
+        let day = self.current_day.get_untracked();
+        let id = format!("daily-{day}");
         if !self.save().await {
             return;
         }
@@ -766,7 +787,7 @@ impl AppState {
             Err(e) if e == "Note not found" => {
                 self.active.set(Note {
                     id,
-                    markdown: format!("# {}\n\n", nice_date(&today())),
+                    markdown: format!("# {}\n\n", nice_date(&day)),
                     folder: "Daily".into(),
                     revision: String::new(),
                 });
@@ -869,7 +890,7 @@ impl AppState {
             "Todo" => format!(
                 "group={}&today={}",
                 self.task_group.get_untracked().to_lowercase(),
-                today()
+                self.current_day.get_untracked()
             ),
             "Planner" => {
                 let dates = if self.weekly.get_untracked() {
@@ -883,7 +904,7 @@ impl AppState {
                     dates.last().unwrap()
                 )
             }
-            _ => format!("group=today&today={}", today()),
+            _ => format!("group=today&today={}", self.current_day.get_untracked()),
         }
     }
     pub fn merge_note_tasks(self, id: &str, v: &Value) {

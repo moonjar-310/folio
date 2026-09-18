@@ -72,6 +72,7 @@ pub fn NoteCard(note: NoteSummary, on_open: Callback<String>) -> impl IntoView {
 #[component]
 pub fn TaskRow(
     task: Task,
+    current_day: RwSignal<String>,
     busy: Signal<bool>,
     on_change: Callback<(String, Value)>,
     on_open: Callback<String>,
@@ -91,7 +92,7 @@ pub fn TaskRow(
                 on:change=move|e|{let checked=event_target_checked(&e);on_change.run((check_id.clone(),json!({"completed":checked})));}/></label>
             <span class="task-title">{task.title.clone()}</span>
             {source.map(|note|view!{<button class="source-link" aria-label="Open source note" on:click=move |_|on_open.run(note.clone())><Icon name="notes"/><span>"Source note"</span></button>})}
-            <span class="task-date meta">{task.due_date.clone().filter(|d|d!=&today()).unwrap_or_default()}</span><span class="task-time">{task.due_time.clone().unwrap_or_default()}</span>
+            <span class="task-date meta">{move || task.due_date.clone().filter(|d|d!=&current_day.get()).unwrap_or_default()}</span><span class="task-time">{task.due_time.clone().unwrap_or_default()}</span>
             <details class="task-details"><summary aria-label=format!("Edit task {}",task.title)>"···"</summary>
                 <form class="task-edit" on:submit=move|e|{e.prevent_default();on_change.run((id.clone(),json!({"title":title.get_untracked(),"due_date":date.get_untracked(),"due_time":time.get_untracked()})));}>
                     <label>"Task"<input required maxlength="500" prop:value=move||title.get() on:input=move|e|title.set(event_target_value(&e))/></label>
@@ -142,7 +143,7 @@ pub fn TaskList(state: AppState, items: Signal<Vec<Task>>) -> impl IntoView {
     view! {
         <div class="task-list">
             <Show when=move||items.get().is_empty()><p class="empty">"A little breathing room. Add an intention when you're ready."</p></Show>
-            <For each=move||items.get() key=|t|(t.id.clone(),t.updated_at,t.completed,t.title.clone()) children=move|task|{let id=task.id.clone();view!{<TaskRow task busy=Signal::derive(move||state.pending_tasks.get().contains(&id)) on_change=change on_open=open on_delete=delete/>}}/>
+            <For each=move||items.get() key=|t|(t.id.clone(),t.updated_at,t.completed,t.title.clone()) children=move|task|{let id=task.id.clone();view!{<TaskRow task current_day=state.current_day busy=Signal::derive(move||state.pending_tasks.get().contains(&id)) on_change=change on_open=open on_delete=delete/>}}/>
         </div>
     }
 }
@@ -150,9 +151,18 @@ pub fn TaskList(state: AppState, items: Signal<Vec<Task>>) -> impl IntoView {
 pub fn TaskForm(
     state: AppState,
     #[prop(default=String::new())] initial_date: String,
+    #[prop(default = false)] follow_today: bool,
 ) -> impl IntoView {
     let title = RwSignal::new(String::new());
     let date = RwSignal::new(initial_date);
+    let previous_day = StoredValue::new(state.current_day.get_untracked());
+    Effect::new(move |_| {
+        let next = state.current_day.get();
+        if follow_today && date.get_untracked() == previous_day.get_value() {
+            date.set(next.clone());
+        }
+        previous_day.set_value(next);
+    });
     let time = RwSignal::new(String::new());
     view! {<form class="task-form" on:submit=move|e|{
         e.prevent_default();let body=json!({"title":title.get_untracked(),"due_date":date.get_untracked(),"due_time":time.get_untracked()});

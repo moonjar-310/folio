@@ -87,6 +87,8 @@ Notes debounce saves by approximately three seconds; blur, note/page navigation 
 
 In-flight saves temporarily disable editor mutation. Successful saves update list metadata from the response. No polling or per-keystroke API saves. Quick Note preserves its capture text while navigating and in browser storage. Explicit sign-out asks to save or discard a pending Quick Note, with Cancel available. Sign-out verifies browser draft removal; save or cleanup failures keep the user signed in with their text preserved.
 
+The browser keeps the local calendar day in reactive state. Focus, visibility changes and page restoration check it immediately; a 30-second local timer handles a tab left open across midnight. Checks on the same day make no network requests. A changed day refreshes Home/Todo filters and default due dates, and moves the planner only when it was following today. Explicitly chosen dates and drafts remain intact. Daily Note uses one local-date snapshot for its ID and title.
+
 Search debounces SQL requests and ignores stale results. Notes use 50-item pages; tasks use 200-item pages with group/date filtering. Theme state applies before paint, follows system initially, and persists an explicit override.
 
 ## API

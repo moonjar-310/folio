@@ -1,5 +1,12 @@
 # Verification results
 
+## Local date rollover — 2026-09-18
+
+- Reproduced the previous stale Home date by advancing Playwright's clock from September 17, 23:59 to September 18, 00:01 in Asia/Seoul and returning focus to the tab.
+- After the fix, Playwright verified Home date/task refresh, Todo visibility-resume refresh, updated default due dates, preserved Quick Note/task drafts and manually selected dates, planner Today highlighting, Sunday-to-Monday navigation, timer-only midnight rollover, and the new day's Daily Note title.
+- Repeated focus/visibility/pageshow on the same date made zero task-list requests. Tests used only an isolated native store with synthetic tasks.
+- Web unit tests (5), WASM compilation, release frontend build, formatting and WASM Clippy passed.
+
 ## Privacy remediation — 2026-09-17
 
 - Production deploy registers masks for individual configuration values and allowed emails before calling Wrangler, and suppresses informational binding summaries. Twelve Node authentication/configuration/masking tests passed; actionlint accepted the workflow.
