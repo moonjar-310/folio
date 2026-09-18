@@ -19,6 +19,7 @@ pub struct AppState {
     pub runtime: RwSignal<String>,
     pub auth_method: RwSignal<String>,
     pub reauthenticate: RwSignal<bool>,
+    pub auth_redirecting: RwSignal<bool>,
     pub notes: RwSignal<Vec<NoteSummary>>,
     pub notes_epoch: RwSignal<u64>,
     pub tasks: RwSignal<Vec<Task>>,
@@ -248,6 +249,7 @@ impl AppState {
             runtime: RwSignal::new(String::new()),
             auth_method: RwSignal::new("unknown".into()),
             reauthenticate: RwSignal::new(false),
+            auth_redirecting: RwSignal::new(false),
             notes: RwSignal::new(vec![]),
             notes_epoch: RwSignal::new(0),
             tasks: RwSignal::new(vec![]),
@@ -302,6 +304,9 @@ impl AppState {
     async fn refresh_tokens(self, previous: &str) -> Result<(), String> {
         let lock = self.refresh_lock.get_value();
         let _guard = lock.lock().await;
+        if !self.authenticated.get_untracked() {
+            return Err("Please sign in again. Your draft is preserved.".into());
+        }
         if self.access_token.get_untracked() != previous
             && self.token_deadline.get_untracked() > js_sys::Date::now()
         {
@@ -311,7 +316,38 @@ impl AppState {
         self.accept_auth(&data);
         Ok(())
     }
+    pub async fn check_session(self) {
+        if self.authenticated.get_untracked()
+            && self.token_deadline.get_untracked() <= js_sys::Date::now()
+            && let Err(error) = self
+                .refresh_tokens(&self.access_token.get_untracked())
+                .await
+        {
+            self.error.set(error);
+        }
+    }
+    fn session_expired(self) -> String {
+        let was_authenticated = self.authenticated.get_untracked();
+        batch(move || {
+            self.authenticated.set(false);
+            self.access_token.set(String::new());
+            self.csrf.set(String::new());
+            self.token_deadline.set(0.0);
+            self.search_open.set(false);
+            self.drawer.set(false);
+            self.reauthenticate.set(true);
+            self.error
+                .set("Your session expired. Please sign in again. Your draft is preserved.".into());
+        });
+        if was_authenticated && self.auth_method.get_untracked() == "cloudflare_access" {
+            self.reopen_sign_in();
+        }
+        self.error.get_untracked()
+    }
     pub async fn api(self, method: &str, path: &str, body: Value) -> Result<Value, String> {
+        if !path.starts_with("/api/auth/") && !self.authenticated.get_untracked() {
+            return Err("Please sign in again. Your draft is preserved.".into());
+        }
         if (!path.starts_with("/api/auth/") || path == "/api/auth/logout")
             && self.token_deadline.get_untracked() <= js_sys::Date::now()
         {
@@ -337,6 +373,7 @@ impl AppState {
             "DELETE" => Request::delete(path),
             _ => Request::get(path),
         }
+        .redirect(web_sys::RequestRedirect::Manual)
         .header("x-csrf-token", &self.csrf.get_untracked())
         .header(
             "authorization",
@@ -354,6 +391,13 @@ impl AppState {
             format!("Could not connect. Your draft is preserved. {e}")
         })?;
         let status = response.status();
+        // Access redirects otherwise become opaque CORS failures after fetch follows them.
+        if response.type_() == web_sys::ResponseType::Opaqueredirect {
+            return Err(self.session_expired());
+        }
+        if status == 401 && (retried || path == "/api/auth/refresh") {
+            return Err(self.session_expired());
+        }
         if !response
             .headers()
             .get("content-type")
@@ -361,6 +405,12 @@ impl AppState {
             .contains("application/json")
         {
             self.reauthenticate.set(true);
+            if status == 401
+                || (self.auth_method.get_untracked() == "cloudflare_access"
+                    && response.url().contains("/cdn-cgi/access/"))
+            {
+                return Err(self.session_expired());
+            }
             return Err("The server did not return app data. Reopen sign-in if your session expired; your draft is preserved.".into());
         }
         let data = response
@@ -378,11 +428,7 @@ impl AppState {
             return Box::pin(self.send_api(method, path, body, true)).await;
         }
         if status == 401 {
-            if self.auth_method.get_untracked() == "cloudflare_access" {
-                self.reauthenticate.set(true);
-            } else {
-                self.authenticated.set(false);
-            }
+            return Err(self.session_expired());
         }
         if !response.ok() {
             return Err(data["message"].as_str().unwrap_or("Request failed").into());
@@ -615,6 +661,9 @@ impl AppState {
     }
     /// Never leave an unsaved editor if persistent recovery cannot be confirmed.
     pub fn reopen_sign_in(self) {
+        if self.auth_redirecting.get_untracked() {
+            return;
+        }
         if self.dirty.get_untracked() {
             let encoded = serde_json::to_string(&self.active.get_untracked()).unwrap_or_default();
             let stored = storage().is_some_and(|s| {
@@ -626,8 +675,22 @@ impl AppState {
                 return;
             }
         }
+        let quick = self.quick.get_untracked();
+        if !quick.is_empty()
+            && !storage().is_some_and(|s| {
+                s.set_item("folio-quick-draft", &quick).is_ok()
+                    && s.get_item("folio-quick-draft").ok().flatten().as_deref()
+                        == Some(quick.as_str())
+            })
+        {
+            self.error.set("Cannot preserve your Quick Note in browser storage. Keep this tab open and retry sign-in.".into());
+            return;
+        }
         if let Some(w) = web_sys::window() {
-            let _ = w.location().reload();
+            self.auth_redirecting.set(true);
+            if w.location().reload().is_err() {
+                self.auth_redirecting.set(false);
+            }
         }
     }
     pub async fn save(self) -> bool {

@@ -1,5 +1,13 @@
 # Verification results
 
+## Expired session sign-in — 2026-09-18
+
+- Normal short-lived token renewal remains automatic. A one-shot deadline timer and tab-resume checks detect rejected refreshes without waiting for a user action.
+- Playwright with an isolated synthetic account verified successful renewal, rejected refresh, offline and HTTP 503 responses, and tab-resume expiry. Concurrent focus/visibility/pageshow events issued only one refresh; signing in again restored unsaved editor and Quick Note text.
+- Simulated Cloudflare 401 and Access 302 responses each produced one automatic document navigation, with no before-unload prompt and with the Quick Note backup intact. A simulated browser-storage failure prevented document navigation and displayed the backup failure on the sign-in screen.
+- An unexpected task API 401 was retried only once after renewal; a second 401 showed sign-in. These are local browser simulations, not a live Access policy-expiry test.
+- Web unit tests (5), WASM Clippy, release browser build, formatting and diff checks passed.
+
 ## Home intentions date filtering — 2026-09-18
 
 - Home now shows only tasks due on the current local day; Todo retains overdue tasks.

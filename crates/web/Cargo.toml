@@ -11,7 +11,7 @@ leptos = { version = "=0.8.14", features = ["csr"] }
 gloo-net = { version = "0.6", features = ["http"] }
 gloo-events = "0.2"
 uuid = { version = "1", features = ["v4", "js"] }
-web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "DomRect", "HtmlInputElement", "HtmlDialogElement", "BeforeUnloadEvent", "KeyboardEvent", "Storage", "MediaQueryList", "History", "Location"] }
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "DomRect", "HtmlInputElement", "HtmlDialogElement", "BeforeUnloadEvent", "KeyboardEvent", "Storage", "MediaQueryList", "History", "Location", "RequestRedirect", "ResponseType"] }
 js-sys = "0.3"
 wasm-bindgen = "=0.2.125"
 console_error_panic_hook = "0.1"

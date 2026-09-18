@@ -20,7 +20,9 @@ fn App() -> impl IntoView {
         "beforeunload",
         gloo_events::EventListenerOptions::enable_prevent_default(),
         move |event| {
-            if state.dirty.get_untracked() || !state.quick.get_untracked().trim().is_empty() {
+            if !state.auth_redirecting.get_untracked()
+                && (state.dirty.get_untracked() || !state.quick.get_untracked().trim().is_empty())
+            {
                 event.prevent_default();
                 if let Some(e) = event.dyn_ref::<web_sys::BeforeUnloadEvent>() {
                     e.set_return_value("");
@@ -115,12 +117,33 @@ fn App() -> impl IntoView {
         });
     });
     // Date checks are local-only. Task reads happen only when the day changes.
-    let focus = gloo_events::EventListener::new(&window, "focus", move |_| state.sync_local_day());
-    let pageshow =
-        gloo_events::EventListener::new(&window, "pageshow", move |_| state.sync_local_day());
+    let check_resume = move || {
+        state.sync_local_day();
+        spawn_local(async move {
+            state.check_session().await;
+        });
+    };
+    let focus = gloo_events::EventListener::new(&window, "focus", move |_| check_resume());
+    let pageshow = gloo_events::EventListener::new(&window, "pageshow", move |_| check_resume());
     let document = window.document().unwrap();
-    let visible = gloo_events::EventListener::new(&document, "visibilitychange", move |_| {
-        state.sync_local_day()
+    let visible =
+        gloo_events::EventListener::new(&document, "visibilitychange", move |_| check_resume());
+    Effect::new(move |_| {
+        let authenticated = state.authenticated.get();
+        let deadline = state.token_deadline.get();
+        if authenticated {
+            let delay = (deadline - js_sys::Date::now()).max(0.0) as u64;
+            if let Ok(timer) = set_timeout_with_handle(
+                move || {
+                    spawn_local(async move {
+                        state.check_session().await;
+                    })
+                },
+                std::time::Duration::from_millis(delay),
+            ) {
+                on_cleanup(move || timer.clear());
+            }
+        }
     });
     let clock = set_interval_with_handle(
         move || state.sync_local_day(),
